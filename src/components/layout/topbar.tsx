@@ -15,8 +15,10 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Menu, Sun, Moon, Bell, LogOut, User } from "lucide-react";
+import { Menu, Sun, Moon, Bell, LogOut, User, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useState } from "react";
+import { cn } from "@/lib/utils";
 
 interface TopBarProps {
   onMenuClick: () => void;
@@ -25,9 +27,10 @@ interface TopBarProps {
 export function TopBar({ onMenuClick }: TopBarProps) {
   const { theme, toggleTheme } = useTheme();
   const { user, logout } = useAuth();
+  const [notifHover, setNotifHover] = useState(false);
 
   return (
-    <header className="h-14 border-b bg-card/80 backdrop-blur-sm flex items-center gap-3 px-4 shrink-0 sticky top-0 z-30">
+    <header className="h-14 border-b bg-card/80 backdrop-blur-md flex items-center gap-3 px-4 shrink-0 sticky top-0 z-30">
       {/* Mobile menu */}
       <Button
         variant="ghost"
@@ -47,13 +50,15 @@ export function TopBar({ onMenuClick }: TopBarProps) {
         {/* Notifications */}
         <Tooltip>
           <TooltipTrigger
-            className="h-9 w-9 relative cursor-pointer inline-flex items-center justify-center rounded-lg hover:bg-muted"
+            onMouseEnter={() => setNotifHover(true)}
+            onMouseLeave={() => setNotifHover(false)}
+            className="h-9 w-9 relative cursor-pointer inline-flex items-center justify-center rounded-lg hover:bg-muted transition-colors"
             aria-label="Notifikasi"
           >
-            <Bell className="h-4 w-4" />
-            <Badge className="absolute -top-0.5 -right-0.5 h-4 min-w-4 px-1 text-[10px] flex items-center justify-center bg-destructive text-destructive-foreground border-2 border-card">
+            <Bell className={cn("h-4 w-4 transition-transform duration-200", notifHover && "animate-bounce")} />
+            <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 px-1 text-[10px] flex items-center justify-center bg-destructive text-destructive-foreground rounded-full border-2 border-card font-medium">
               3
-            </Badge>
+            </span>
           </TooltipTrigger>
           <TooltipContent>Notifikasi</TooltipContent>
         </Tooltip>
@@ -61,57 +66,51 @@ export function TopBar({ onMenuClick }: TopBarProps) {
         {/* Theme toggle */}
         <Tooltip>
           <TooltipTrigger
-            className="h-9 w-9 cursor-pointer inline-flex items-center justify-center rounded-lg hover:bg-muted"
+            className="h-9 w-9 cursor-pointer inline-flex items-center justify-center rounded-lg hover:bg-muted transition-colors"
             onClick={toggleTheme}
-            aria-label={
-              theme === "dark"
-                ? "Beralih ke mode terang"
-                : "Beralih ke mode gelap"
-            }
+            aria-label={theme === "dark" ? "Mode Terang" : "Mode Gelap"}
           >
-            {theme === "dark" ? (
-              <Sun className="h-4 w-4" />
-            ) : (
-              <Moon className="h-4 w-4" />
-            )}
+            <div className="relative h-4 w-4">
+              <Sun className={cn(
+                "h-4 w-4 absolute inset-0 transition-all duration-300",
+                theme === "dark" ? "opacity-100 rotate-0" : "opacity-0 rotate-90"
+              )} />
+              <Moon className={cn(
+                "h-4 w-4 absolute inset-0 transition-all duration-300",
+                theme === "light" ? "opacity-100 rotate-0" : "opacity-0 -rotate-90"
+              )} />
+            </div>
           </TooltipTrigger>
-          <TooltipContent>
-            {theme === "dark" ? "Mode Terang" : "Mode Gelap"}
-          </TooltipContent>
+          <TooltipContent>{theme === "dark" ? "Mode Terang" : "Mode Gelap"}</TooltipContent>
         </Tooltip>
 
         {/* User dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger
-            className="h-9 gap-2 px-2 cursor-pointer inline-flex items-center rounded-lg hover:bg-muted"
+            className="h-9 gap-2 px-2 cursor-pointer inline-flex items-center rounded-lg hover:bg-muted transition-colors"
             aria-label="Menu pengguna"
           >
-            <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary">
-              {user?.name
-                .split(" ")
-                .map((n: string) => n[0])
-                .join("") ?? "?"}
+            <div className="h-7 w-7 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center text-[11px] font-semibold text-primary">
+              {user?.name.split(" ").map((n: string) => n[0]).join("") ?? "?"}
             </div>
-            <span className="text-sm font-medium hidden sm:inline">
-              {user?.name}
-            </span>
+            <span className="text-sm font-medium hidden sm:inline">{user?.name}</span>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
-            <div className="px-2 py-1.5">
+          <DropdownMenuContent align="end" className="w-56">
+            <div className="px-3 py-2">
               <p className="text-sm font-medium">{user?.name}</p>
               <p className="text-xs text-muted-foreground">{user?.email}</p>
             </div>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="cursor-pointer">
-              <User className="h-4 w-4 mr-2" />
+            <DropdownMenuItem className="cursor-pointer gap-2">
+              <User className="h-4 w-4" />
               Profil
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={logout}
-              className="text-destructive cursor-pointer"
+              className="text-destructive cursor-pointer gap-2 focus:text-destructive"
             >
-              <LogOut className="h-4 w-4 mr-2" />
+              <LogOut className="h-4 w-4" />
               Keluar
             </DropdownMenuItem>
           </DropdownMenuContent>

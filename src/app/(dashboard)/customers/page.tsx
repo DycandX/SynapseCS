@@ -11,16 +11,13 @@ import {
   MessageSquare,
   Calendar,
   Users,
+  ArrowRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import {
-  customers,
-  getConversationsByCustomerId,
-} from "@/lib/dummy-data";
+import { customers, getConversationsByCustomerId } from "@/lib/dummy-data";
 
 function formatDate(dateStr: string): string {
-  const d = new Date(dateStr);
-  return d.toLocaleDateString("id-ID", {
+  return new Date(dateStr).toLocaleDateString("id-ID", {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -42,15 +39,21 @@ export default function CustomersPage() {
   }, [search]);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Pelanggan</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          Lihat dan kelola data pelanggan Anda.
-        </p>
+    <div className="space-y-6 animate-in">
+      <div className="flex items-end justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Pelanggan</h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            Lihat dan kelola data pelanggan Anda.
+          </p>
+        </div>
+        <div className="hidden sm:flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-lg">
+          <Users className="h-3.5 w-3.5" />
+          {customers.length} total pelanggan
+        </div>
       </div>
 
-      <div className="relative max-w-sm">
+      <div className="relative w-full sm:max-w-xs">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
           placeholder="Cari pelanggan..."
@@ -62,14 +65,12 @@ export default function CustomersPage() {
       </div>
 
       {filteredCustomers.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <div className="p-4 rounded-full bg-muted mb-4">
-            <Users className="h-8 w-8 text-muted-foreground" />
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <div className="p-5 rounded-2xl bg-muted mb-5">
+            <Users className="h-10 w-10 text-muted-foreground" />
           </div>
           <h3 className="text-lg font-medium">Tidak ada pelanggan</h3>
-          <p className="text-muted-foreground text-sm mt-1">
-            Coba ubah kata kunci pencarian.
-          </p>
+          <p className="text-muted-foreground text-sm mt-1">Coba ubah kata kunci pencarian.</p>
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -81,22 +82,20 @@ export default function CustomersPage() {
               <Link
                 key={customer.id}
                 href={`/customers/${customer.id}`}
-                className="block p-5 rounded-xl border bg-card transition-all duration-200 hover:border-primary/30 hover:shadow-sm active:scale-[0.995]"
+                className="group block p-5 rounded-xl border bg-card transition-all duration-200 hover:border-primary/25 hover:shadow-sm hover:-translate-y-0.5"
               >
                 <div className="flex items-start gap-4">
-                  <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary shrink-0">
-                    {customer.name
-                      .split(" ")
-                      .map((n) => n[0])
-                      .join("")}
+                  <div className="h-12 w-12 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center text-sm font-bold text-primary shrink-0 ring-2 ring-background">
+                    {customer.name.split(" ").map((n) => n[0]).join("")}
                   </div>
 
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-sm truncate">
-                      {customer.name}
-                    </h3>
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-semibold text-sm truncate">{customer.name}</h3>
+                      <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
+                    </div>
 
-                    <div className="mt-2 space-y-1.5">
+                    <div className="mt-2.5 space-y-1.5">
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <Mail className="h-3.5 w-3.5 shrink-0" />
                         <span className="truncate">{customer.email}</span>
@@ -117,10 +116,7 @@ export default function CustomersPage() {
                         {convos.length} percakapan
                       </Badge>
                       {openCount > 0 && (
-                        <Badge
-                          variant="outline"
-                          className="text-xs gap-1 bg-info/10 text-info border-info/30"
-                        >
+                        <Badge variant="outline" className="text-xs gap-1 bg-info/10 text-info border-info/20">
                           {openCount} terbuka
                         </Badge>
                       )}
