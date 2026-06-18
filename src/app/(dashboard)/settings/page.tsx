@@ -64,11 +64,16 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6 animate-in">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Pengaturan</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          Kelola pengaturan akun dan sistem.
-        </p>
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-border/60 pb-5">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-foreground via-foreground/90 to-muted-foreground bg-clip-text text-transparent">
+            Pengaturan Sistem
+          </h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            Kelola konfigurasi tim, notifikasi email, dan detail akun Anda.
+          </p>
+        </div>
       </div>
 
       <Tabs defaultValue="notifications" className="space-y-6">

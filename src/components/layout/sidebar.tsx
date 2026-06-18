@@ -20,6 +20,7 @@ import {
   ChevronsLeft,
   ChevronsRight,
   LogOut,
+  LayoutDashboard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { conversations } from "@/lib/dummy-data";
@@ -32,6 +33,7 @@ interface SidebarProps {
 }
 
 const navItems = [
+  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   {
     label: "Inbox",
     href: "/inbox",

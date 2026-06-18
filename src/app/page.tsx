@@ -21,10 +21,15 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const { login } = useAuth();
+  const { login, isAuthenticated } = useAuth();
   const router = useRouter();
 
-  useEffect(() => { setMounted(true); }, []);
+  useEffect(() => {
+    setMounted(true);
+    if (isAuthenticated) {
+      router.replace("/dashboard");
+    }
+  }, [isAuthenticated, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,7 +38,7 @@ export default function LoginPage() {
     await new Promise((r) => setTimeout(r, 800));
     const success = login(email);
     if (success) {
-      router.push("/inbox");
+      router.push("/dashboard");
     } else {
       setError("Email tidak ditemukan. Gunakan salah satu akun demo.");
       setIsLoading(false);
@@ -46,7 +51,7 @@ export default function LoginPage() {
     setIsLoading(true);
     await new Promise((r) => setTimeout(r, 500));
     login(userEmail);
-    router.push("/inbox");
+    router.push("/dashboard");
   };
 
   return (
