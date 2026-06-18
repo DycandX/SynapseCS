@@ -1,12 +1,15 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
 import { useAuth } from "@/components/auth-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Skeleton } from "@/components/ui/skeleton";
+import { supabase } from "@/lib/supabase";
+import { getDashboardStatsAction } from "@/app/actions";
 import {
   Inbox,
   Users,
@@ -26,14 +29,10 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  conversations,
-  customers,
-  users,
-  messages,
+  conversations as dummyConversations,
+  users as dummyUsers,
   getCustomerById,
-  getAgentById,
   getMessagesByConversationId,
-  type Conversation,
   type Sentiment,
   type ConversationStatus,
 } from "@/lib/dummy-data";
@@ -62,29 +61,22 @@ const sentimentConfig: Record<Sentiment, { label: string; icon: typeof Flame; co
   },
 };
 
-const statusConfig: Record<ConversationStatus, { label: string; icon: typeof CheckCircle2; color: string; bg: string }> = {
-  open: {
-    label: "Terbuka",
-    icon: AlertCircle,
-    color: "text-info",
-    bg: "bg-info/10",
-  },
-  pending: {
-    label: "Tertunda",
-    icon: Clock,
-    color: "text-warning",
-    bg: "bg-warning/10",
-  },
-  closed: {
-    label: "Selesai",
-    icon: CheckCircle2,
-    color: "text-success",
-    bg: "bg-success/10",
-  },
-};
-
 export default function DashboardPage() {
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, isUsingSupabase } = useAuth();
+  
+  // Dashboard states
+  const [stats, setStats] = useState<any>({
+    total: 0,
+    open: 0,
+    pending: 0,
+    closed: 0,
+    totalCustomers: 0,
+    csatPercent: 90,
+    sentimentBreakdown: { marah: 0, netral: 0, puas: 0 },
+  });
+  const [urgentEscalations, setUrgentEscalations] = useState<any[]>([]);
+  const [agentWorkloads, setAgentWorkloads] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   // Get current date string in Indonesian format
   const currentDateStr = useMemo(() => {
@@ -96,76 +88,178 @@ export default function DashboardPage() {
     });
   }, []);
 
-  // Compute metrics
-  const metrics = useMemo(() => {
-    const total = conversations.length;
-    const open = conversations.filter((c) => c.status === "open").length;
-    const pending = conversations.filter((c) => c.status === "pending").length;
-    const closed = conversations.filter((c) => c.status === "closed").length;
-    
-    // CSAT calculation based on satisfied customer chats out of rated chats
-    const rated = conversations.filter((c) => c.status === "closed");
-    const satisfied = rated.filter((c) => c.sentiment === "puas").length;
-    const csatPercent = rated.length > 0 ? Math.round((satisfied / rated.length) * 100) : 92; // default fallback if none closed
+  // 1. Fetch dashboard data (Supabase or Dummy fallback)
+  useEffect(() => {
+    const loadDashboardData = async () => {
+      setLoading(true);
+      if (isUsingSupabase) {
+        try {
+          // Fetch statistics
+          const statsData = await getDashboardStatsAction();
+          if (statsData) {
+            setStats(statsData);
+          }
 
-    // Sentiment breakdown counts
-    const angryCount = conversations.filter((c) => c.sentiment === "marah").length;
-    const neutralCount = conversations.filter((c) => c.sentiment === "netral").length;
-    const happyCount = conversations.filter((c) => c.sentiment === "puas").length;
+          // Fetch urgent escalations (open/pending and angry sentiment)
+          const { data: urgents } = await supabase
+            .from("conversations")
+            .select("id, status, sentiment, updated_at, customer_id, customers(name)")
+            .neq("status", "closed")
+            .eq("sentiment", "marah")
+            .order("updated_at", { ascending: false });
 
-    // Filter urgent escalations (open/pending and angry sentiment)
-    const urgentEscalations = conversations
-      .filter((c) => c.status !== "closed" && c.sentiment === "marah")
-      .map((c) => {
-        const customer = getCustomerById(c.customerId);
-        const msgs = getMessagesByConversationId(c.id);
-        const lastMsg = msgs[msgs.length - 1];
-        return {
-          ...c,
-          customer,
-          lastMessage: lastMsg?.content ?? "Tidak ada pesan",
-          messageCount: msgs.length,
-        };
-      });
+          const mappedUrgents = [];
+          if (urgents) {
+            for (const convo of urgents) {
+              const { data: lastMsg } = await supabase
+                .from("messages")
+                .select("content")
+                .eq("conversation_id", convo.id)
+                .order("created_at", { ascending: false })
+                .limit(1)
+                .single();
+              
+              mappedUrgents.push({
+                id: convo.id,
+                sentiment: convo.sentiment,
+                updatedAt: convo.updated_at,
+                customer: convo.customers,
+                lastMessage: lastMsg?.content || "Tidak ada pesan",
+                messageCount: 1, // simplified representation
+              });
+            }
+          }
+          setUrgentEscalations(mappedUrgents);
 
-    // Compute Agent active workload
-    const agentWorkloads = users.map((u) => {
-      const activeChats = conversations.filter(
-        (c) => c.agentId === u.id && c.status !== "closed"
-      ).length;
-      const closedChats = conversations.filter(
-        (c) => c.agentId === u.id && c.status === "closed"
-      ).length;
-      
-      // Assign dummy active status
-      let status: "online" | "offline" | "busy" = "online";
-      if (u.id === "u1") status = "online"; // Admin
-      else if (activeChats > 2) status = "busy";
-      else if (u.id === "u3") status = "online";
-      
-      return {
-        ...u,
-        activeChats,
-        closedChats,
-        status,
-      };
-    });
+          // Fetch agent active workloads
+          const { data: profiles } = await supabase
+            .from("profiles")
+            .select("*");
 
-    return {
-      total,
-      open,
-      pending,
-      closed,
-      csatPercent,
-      sentimentBreakdown: {
-        marah: angryCount,
-        netral: neutralCount,
-        puas: happyCount,
-      },
-      urgentEscalations,
-      agentWorkloads,
+          if (profiles) {
+            const mappedAgents = [];
+            for (const u of profiles) {
+              const { count: activeCount } = await supabase
+                .from("conversations")
+                .select("*", { count: "exact", head: true })
+                .eq("agent_id", u.id)
+                .neq("status", "closed");
+
+              const { count: closedCount } = await supabase
+                .from("conversations")
+                .select("*", { count: "exact", head: true })
+                .eq("agent_id", u.id)
+                .eq("status", "closed");
+              
+              mappedAgents.push({
+                id: u.id,
+                name: u.name,
+                role: u.role,
+                activeChats: activeCount || 0,
+                closedChats: closedCount || 0,
+                status: u.role === "admin" ? "online" : (activeCount && activeCount > 2 ? "busy" : "online"),
+              });
+            }
+            setAgentWorkloads(mappedAgents);
+          }
+        } catch (error) {
+          console.error("Failed to load dashboard statistics:", error);
+        } finally {
+          setLoading(false);
+        }
+      } else {
+        // Fallback to dummy data
+        const total = dummyConversations.length;
+        const open = dummyConversations.filter((c) => c.status === "open").length;
+        const pending = dummyConversations.filter((c) => c.status === "pending").length;
+        const closed = dummyConversations.filter((c) => c.status === "closed").length;
+        
+        const rated = dummyConversations.filter((c) => c.status === "closed");
+        const satisfied = rated.filter((c) => c.sentiment === "puas").length;
+        const csatPercent = rated.length > 0 ? Math.round((satisfied / rated.length) * 100) : 92;
+
+        const angryCount = dummyConversations.filter((c) => c.sentiment === "marah").length;
+        const neutralCount = dummyConversations.filter((c) => c.sentiment === "netral").length;
+        const happyCount = dummyConversations.filter((c) => c.sentiment === "puas").length;
+
+        setStats({
+          total,
+          open,
+          pending,
+          closed,
+          totalCustomers: 6,
+          csatPercent,
+          sentimentBreakdown: { marah: angryCount, netral: neutralCount, puas: happyCount },
+        });
+
+        // Urgent dummy escalations
+        const dummyUrgents = dummyConversations
+          .filter((c) => c.status !== "closed" && c.sentiment === "marah")
+          .map((c) => {
+            const customer = getCustomerById(c.customerId);
+            const msgs = getMessagesByConversationId(c.id);
+            const lastMsg = msgs[msgs.length - 1];
+            return {
+              id: c.id,
+              sentiment: c.sentiment,
+              updatedAt: c.updatedAt,
+              customer,
+              lastMessage: lastMsg?.content ?? "Tidak ada pesan",
+              messageCount: msgs.length,
+            };
+          });
+        setUrgentEscalations(dummyUrgents);
+
+        // Dummy agent workloads
+        const dummyAgents = dummyUsers.map((u) => {
+          const activeChats = dummyConversations.filter(
+            (c) => c.agentId === u.id && c.status !== "closed"
+          ).length;
+          const closedChats = dummyConversations.filter(
+            (c) => c.agentId === u.id && c.status === "closed"
+          ).length;
+          
+          let status: "online" | "offline" | "busy" = "online";
+          if (u.id === "u1") status = "online";
+          else if (activeChats > 2) status = "busy";
+          
+          return {
+            id: u.id,
+            name: u.name,
+            role: u.role,
+            activeChats,
+            closedChats,
+            status,
+          };
+        });
+        setAgentWorkloads(dummyAgents);
+        setLoading(false);
+      }
     };
-  }, []);
+
+    loadDashboardData();
+  }, [isUsingSupabase]);
+
+  // Real-time updates subscription for statistics (Supabase only)
+  useEffect(() => {
+    if (!isUsingSupabase) return;
+
+    const channel = supabase
+      .channel("dashboard-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "conversations" }, () => {
+        // Reload dashboard details on conversation state updates
+        const reloadData = async () => {
+          const statsData = await getDashboardStatsAction();
+          if (statsData) setStats(statsData);
+        };
+        reloadData();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [isUsingSupabase]);
 
   return (
     <div className="space-y-6 animate-in">
@@ -201,7 +295,7 @@ export default function DashboardPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="p-4 pt-0">
-            <div className="text-2xl font-bold">{metrics.total}</div>
+            <div className="text-2xl font-bold">{stats.total}</div>
             <p className="text-[10px] text-muted-foreground mt-1 font-medium">Semua percakapan masuk</p>
           </CardContent>
         </Card>
@@ -215,7 +309,7 @@ export default function DashboardPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="p-4 pt-0">
-            <div className="text-2xl font-bold text-info">{metrics.open}</div>
+            <div className="text-2xl font-bold text-info">{stats.open}</div>
             <p className="text-[10px] text-muted-foreground mt-1 font-medium">Butuh respon segera</p>
           </CardContent>
         </Card>
@@ -229,7 +323,7 @@ export default function DashboardPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="p-4 pt-0">
-            <div className="text-2xl font-bold text-warning">{metrics.pending}</div>
+            <div className="text-2xl font-bold text-warning">{stats.pending}</div>
             <p className="text-[10px] text-muted-foreground mt-1 font-medium">Menunggu info pelanggan</p>
           </CardContent>
         </Card>
@@ -243,7 +337,7 @@ export default function DashboardPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="p-4 pt-0">
-            <div className="text-2xl font-bold text-success">{metrics.closed}</div>
+            <div className="text-2xl font-bold text-success">{stats.closed}</div>
             <p className="text-[10px] text-muted-foreground mt-1 font-medium">Terselesaikan penuh</p>
           </CardContent>
         </Card>
@@ -257,7 +351,7 @@ export default function DashboardPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="p-4 pt-0">
-            <div className="text-2xl font-bold text-success">{metrics.csatPercent}%</div>
+            <div className="text-2xl font-bold text-success">{stats.csatPercent}%</div>
             <p className="text-[10px] text-muted-foreground mt-1 font-medium flex items-center gap-1 font-medium">
               <TrendingUp className="h-3 w-3" /> Target 90% terlampaui
             </p>
@@ -281,7 +375,7 @@ export default function DashboardPage() {
 
       {/* Main Sections Grid */}
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Left/Middle Column (Urgent alerts + Sentiment Analysis) */}
+        {/* Left/Middle Column */}
         <div className="lg:col-span-2 space-y-6">
           {/* Urgent Escalations Panel */}
           <Card className="border border-border/80 shadow-xs">
@@ -296,15 +390,20 @@ export default function DashboardPage() {
                     <CardDescription className="text-xs">Tiket dengan sentimen marah/frustrasi yang aktif</CardDescription>
                   </div>
                 </div>
-                {metrics.urgentEscalations.length > 0 && (
+                {urgentEscalations.length > 0 && (
                   <Badge variant="destructive" className="h-5 animate-pulse font-medium text-xs px-2">
-                    {metrics.urgentEscalations.length} Butuh Penanganan
+                    {urgentEscalations.length} Butuh Penanganan
                   </Badge>
                 )}
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              {metrics.urgentEscalations.length === 0 ? (
+              {loading ? (
+                <div className="p-6 space-y-3">
+                  <Skeleton className="h-10 w-full" />
+                  <Skeleton className="h-10 w-full" />
+                </div>
+              ) : urgentEscalations.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-10 text-center px-4">
                   <div className="p-3.5 rounded-full bg-success/10 text-success mb-3">
                     <CheckCircle2 className="h-7 w-7" />
@@ -314,8 +413,7 @@ export default function DashboardPage() {
                 </div>
               ) : (
                 <div className="divide-y divide-border/50">
-                  {metrics.urgentEscalations.map((esc) => {
-                    const sentimentCfg = sentimentConfig[esc.sentiment];
+                  {urgentEscalations.map((esc) => {
                     return (
                       <div
                         key={esc.id}
@@ -323,7 +421,7 @@ export default function DashboardPage() {
                       >
                         <div className="min-w-0 space-y-1">
                           <div className="flex items-center gap-2">
-                            <span className="font-semibold text-sm">{esc.customer?.name}</span>
+                            <span className="font-semibold text-sm">{esc.customer?.name || "Pelanggan"}</span>
                             <Badge className="bg-sentiment-angry/10 text-sentiment-angry hover:bg-sentiment-angry/15 border-0 font-medium text-[10px] h-4.5 px-1.5 gap-0.5">
                               <Flame className="h-2.5 w-2.5" />
                               Marah
@@ -334,8 +432,6 @@ export default function DashboardPage() {
                           </p>
                           <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
                             <span>Diperbarui {new Date(esc.updatedAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}</span>
-                            <span>•</span>
-                            <span>{esc.messageCount} pesan dalam obrolan</span>
                           </div>
                         </div>
                         <Link
@@ -370,30 +466,30 @@ export default function DashboardPage() {
                   <div
                     className="h-full bg-sentiment-happy transition-all"
                     style={{
-                      width: `${(metrics.sentimentBreakdown.puas / metrics.total) * 100}%`,
+                      width: `${stats.total > 0 ? (stats.sentimentBreakdown.puas / stats.total) * 100 : 0}%`,
                     }}
-                    title={`Puas: ${metrics.sentimentBreakdown.puas}`}
+                    title={`Puas: ${stats.sentimentBreakdown.puas}`}
                   />
                   {/* Netral */}
                   <div
                     className="h-full bg-sentiment-neutral transition-all"
                     style={{
-                      width: `${(metrics.sentimentBreakdown.netral / metrics.total) * 100}%`,
+                      width: `${stats.total > 0 ? (stats.sentimentBreakdown.netral / stats.total) * 100 : 0}%`,
                     }}
-                    title={`Netral: ${metrics.sentimentBreakdown.netral}`}
+                    title={`Netral: ${stats.sentimentBreakdown.netral}`}
                   />
                   {/* Marah */}
                   <div
                     className="h-full bg-sentiment-angry transition-all"
                     style={{
-                      width: `${(metrics.sentimentBreakdown.marah / metrics.total) * 100}%`,
+                      width: `${stats.total > 0 ? (stats.sentimentBreakdown.marah / stats.total) * 100 : 0}%`,
                     }}
-                    title={`Marah: ${metrics.sentimentBreakdown.marah}`}
+                    title={`Marah: ${stats.sentimentBreakdown.marah}`}
                   />
                 </div>
                 <div className="flex items-center justify-between text-[11px] text-muted-foreground font-medium">
                   <span>Distribusi Sentimen (%)</span>
-                  <span>{metrics.total} Total Tiket</span>
+                  <span>{stats.total} Total Tiket</span>
                 </div>
               </div>
 
@@ -405,11 +501,11 @@ export default function DashboardPage() {
                     <span className="h-2.5 w-2.5 rounded-full bg-sentiment-happy shrink-0" />
                     <div>
                       <p className="text-xs font-semibold text-foreground/90">Puas / Senang</p>
-                      <p className="text-[10px] text-muted-foreground">{metrics.sentimentBreakdown.puas} percakapan</p>
+                      <p className="text-[10px] text-muted-foreground">{stats.sentimentBreakdown.puas} percakapan</p>
                     </div>
                   </div>
                   <span className="text-sm font-bold text-sentiment-happy">
-                    {Math.round((metrics.sentimentBreakdown.puas / metrics.total) * 100)}%
+                    {stats.total > 0 ? Math.round((stats.sentimentBreakdown.puas / stats.total) * 100) : 0}%
                   </span>
                 </div>
 
@@ -419,11 +515,11 @@ export default function DashboardPage() {
                     <span className="h-2.5 w-2.5 rounded-full bg-sentiment-neutral shrink-0" />
                     <div>
                       <p className="text-xs font-semibold text-foreground/90">Netral</p>
-                      <p className="text-[10px] text-muted-foreground">{metrics.sentimentBreakdown.netral} percakapan</p>
+                      <p className="text-[10px] text-muted-foreground">{stats.sentimentBreakdown.netral} percakapan</p>
                     </div>
                   </div>
                   <span className="text-sm font-bold text-sentiment-neutral">
-                    {Math.round((metrics.sentimentBreakdown.netral / metrics.total) * 100)}%
+                    {stats.total > 0 ? Math.round((stats.sentimentBreakdown.netral / stats.total) * 100) : 0}%
                   </span>
                 </div>
 
@@ -433,11 +529,11 @@ export default function DashboardPage() {
                     <span className="h-2.5 w-2.5 rounded-full bg-sentiment-angry shrink-0" />
                     <div>
                       <p className="text-xs font-semibold text-foreground/90">Marah / Kecewa</p>
-                      <p className="text-[10px] text-muted-foreground">{metrics.sentimentBreakdown.marah} percakapan</p>
+                      <p className="text-[10px] text-muted-foreground">{stats.sentimentBreakdown.marah} percakapan</p>
                     </div>
                   </div>
                   <span className="text-sm font-bold text-sentiment-angry">
-                    {Math.round((metrics.sentimentBreakdown.marah / metrics.total) * 100)}%
+                    {stats.total > 0 ? Math.round((stats.sentimentBreakdown.marah / stats.total) * 100) : 0}%
                   </span>
                 </div>
               </div>
@@ -445,16 +541,15 @@ export default function DashboardPage() {
           </Card>
         </div>
 
-        {/* Right Column (Agent workload & Quick actions) */}
+        {/* Right Column */}
         <div className="space-y-6">
-          {/* Quick Actions Grid */}
+          {/* Quick Actions */}
           <Card className="border border-border/80 shadow-xs">
             <CardHeader className="pb-3 border-b border-border/60">
               <CardTitle className="text-base font-bold">Aksi Cepat</CardTitle>
               <CardDescription className="text-xs">Akses instan ke menu esensial</CardDescription>
             </CardHeader>
             <CardContent className="p-4 grid gap-2">
-              {/* Go to Inbox */}
               <Link
                 href="/inbox"
                 className="flex items-center gap-3 p-3 rounded-xl border border-border/80 bg-card hover:bg-accent hover:border-primary/25 transition-all text-sm font-medium group cursor-pointer"
@@ -469,7 +564,6 @@ export default function DashboardPage() {
                 <ArrowUpRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
               </Link>
 
-              {/* View Customers */}
               <Link
                 href="/customers"
                 className="flex items-center gap-3 p-3 rounded-xl border border-border/80 bg-card hover:bg-accent hover:border-primary/25 transition-all text-sm font-medium group cursor-pointer"
@@ -484,7 +578,6 @@ export default function DashboardPage() {
                 <ArrowUpRight className="h-4 w-4 text-muted-foreground group-hover:text-info transition-colors" />
               </Link>
 
-              {/* Add SOP */}
               <Link
                 href="/knowledge"
                 className="flex items-center gap-3 p-3 rounded-xl border border-border/80 bg-card hover:bg-accent hover:border-primary/25 transition-all text-sm font-medium group cursor-pointer"
@@ -499,7 +592,6 @@ export default function DashboardPage() {
                 <ArrowUpRight className="h-4 w-4 text-muted-foreground group-hover:text-success transition-colors" />
               </Link>
 
-              {/* Configure Settings */}
               <Link
                 href="/settings"
                 className="flex items-center gap-3 p-3 rounded-xl border border-border/80 bg-card hover:bg-accent hover:border-primary/25 transition-all text-sm font-medium group cursor-pointer"
@@ -516,57 +608,62 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          {/* Active Agents / Team Status */}
+          {/* Active Agents */}
           <Card className="border border-border/80 shadow-xs">
             <CardHeader className="pb-3 border-b border-border/60">
               <CardTitle className="text-base font-bold">Status Keaktifan Tim</CardTitle>
               <CardDescription className="text-xs">Beban kerja aktif per agen terdaftar</CardDescription>
             </CardHeader>
             <CardContent className="p-4 space-y-3">
-              {metrics.agentWorkloads.map((agent) => {
-                const isOnline = agent.status === "online";
-                const isBusy = agent.status === "busy";
-                
-                return (
-                  <div
-                    key={agent.id}
-                    className="flex items-center gap-3 p-2.5 rounded-xl border border-border/40 hover:bg-muted/20 transition-colors"
-                  >
-                    {/* Status Dot with Avatar initial */}
-                    <div className="relative shrink-0">
-                      <div className="h-9 w-9 rounded-full bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center text-xs font-bold text-primary ring-1 ring-border">
-                        {agent.name.split(" ").map((n) => n[0]).join("")}
+              {loading ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-8 w-full" />
+                  <Skeleton className="h-8 w-full" />
+                </div>
+              ) : (
+                agentWorkloads.map((agent) => {
+                  const isOnline = agent.status === "online";
+                  const isBusy = agent.status === "busy";
+                  
+                  return (
+                    <div
+                      key={agent.id}
+                      className="flex items-center gap-3 p-2.5 rounded-xl border border-border/40 hover:bg-muted/20 transition-colors"
+                    >
+                      <div className="relative shrink-0">
+                        <div className="h-9 w-9 rounded-full bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center text-xs font-bold text-primary ring-1 ring-border">
+                          {agent.name.split(" ").map((n: any) => n[0]).join("")}
+                        </div>
+                        <span className={cn(
+                          "absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full ring-2 ring-card",
+                          isOnline ? "bg-success" : isBusy ? "bg-warning" : "bg-muted-foreground"
+                        )} />
                       </div>
-                      <span className={cn(
-                        "absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full ring-2 ring-card",
-                        isOnline ? "bg-success" : isBusy ? "bg-warning" : "bg-muted-foreground"
-                      )} />
-                    </div>
 
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold truncate leading-tight">{agent.name}</p>
-                      <p className="text-[10px] text-muted-foreground capitalize leading-none mt-0.5">{agent.role}</p>
-                    </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold truncate leading-tight">{agent.name}</p>
+                        <p className="text-[10px] text-muted-foreground capitalize leading-none mt-0.5">{agent.role}</p>
+                      </div>
 
-                    {/* Active Workload Badges */}
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <Tooltip>
-                        <TooltipTrigger className="cursor-default">
-                          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/15">
-                            {agent.activeChats} Aktif
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent side="top">
-                          Beban obrolan aktif
-                        </TooltipContent>
-                      </Tooltip>
-                      <span className="text-[10px] text-muted-foreground">
-                        {agent.closedChats} Selesai
-                      </span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <Tooltip>
+                          <TooltipTrigger className="cursor-default">
+                            <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/15">
+                              {agent.activeChats} Aktif
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent side="top">
+                            Beban obrolan aktif
+                          </TooltipContent>
+                        </Tooltip>
+                        <span className="text-[10px] text-muted-foreground">
+                          {agent.closedChats} Selesai
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </CardContent>
           </Card>
         </div>

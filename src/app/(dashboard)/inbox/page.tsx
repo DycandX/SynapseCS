@@ -1,10 +1,13 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
+import { useAuth } from "@/components/auth-provider";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { supabase } from "@/lib/supabase";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Search,
   Flame,
@@ -20,7 +23,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  conversations,
+  conversations as dummyConversations,
   getCustomerById,
   getAgentById,
   getMessagesByConversationId,
@@ -77,10 +80,11 @@ const statusConfig: Record<ConversationStatus, { label: string; icon: typeof Cir
 };
 
 function timeAgo(dateStr: string): string {
-  const now = new Date("2026-06-17T12:00:00Z");
+  const now = new Date();
   const date = new Date(dateStr);
   const diffMs = now.getTime() - date.getTime();
   const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 1) return `baru saja`;
   if (diffMin < 60) return `${diffMin} mnt lalu`;
   const diffHours = Math.floor(diffMin / 60);
   if (diffHours < 24) return `${diffHours} jam lalu`;
@@ -89,37 +93,138 @@ function timeAgo(dateStr: string): string {
 }
 
 export default function InboxPage() {
+  const { isUsingSupabase } = useAuth();
+  
+  const [conversationsList, setConversationsList] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
+  // Fetch conversations function
+  const fetchConversations = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("conversations")
+        .select(`
+          id,
+          status,
+          sentiment,
+          ai_summary,
+          created_at,
+          updated_at,
+          customers (id, name, email, phone),
+          profiles (id, name, role),
+          messages (id, sender_type, content, created_at)
+        `)
+        .order("updated_at", { ascending: false });
+
+      if (error) throw error;
+      setConversationsList(data || []);
+    } catch (err) {
+      console.error("Failed to load conversations from Supabase:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 1. Initial Load
+  useEffect(() => {
+    if (isUsingSupabase) {
+      fetchConversations();
+    } else {
+      // Dummy data mapping
+      const mapped = dummyConversations.map((c) => {
+        const customer = getCustomerById(c.customerId);
+        const agent = c.agentId ? getAgentById(c.agentId) : null;
+        const dummyMsgs = getMessagesByConversationId(c.id).map((m) => ({
+          id: m.id,
+          sender_type: m.senderType,
+          content: m.content,
+          created_at: m.createdAt,
+        }));
+        return {
+          id: c.id,
+          status: c.status,
+          sentiment: c.sentiment,
+          ai_summary: c.aiSummary,
+          created_at: c.createdAt,
+          updated_at: c.updatedAt,
+          unread: c.unread,
+          customers: customer ? { name: customer.name, email: customer.email } : null,
+          profiles: agent ? { name: agent.name } : null,
+          messages: dummyMsgs,
+        };
+      });
+      setConversationsList(mapped);
+      setLoading(false);
+    }
+  }, [isUsingSupabase]);
+
+  // 2. Real-time Subscription (Supabase only)
+  useEffect(() => {
+    if (!isUsingSupabase) return;
+
+    // Refresh list on any changes in conversation or message insertions
+    const channel = supabase
+      .channel("inbox-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "conversations" },
+        () => {
+          fetchConversations();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "messages" },
+        () => {
+          fetchConversations();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [isUsingSupabase]);
+
+  // 3. Filtered conversations compilation
   const filteredConversations = useMemo(() => {
-    let result = [...conversations];
+    let result = [...conversationsList];
+    
     if (statusFilter !== "all") {
       result = result.filter((c) => c.status === statusFilter);
     }
+    
     if (search.trim()) {
       const q = search.toLowerCase();
       result = result.filter((c) => {
-        const customer = getCustomerById(c.customerId);
-        return customer?.name.toLowerCase().includes(q);
+        const customerName = c.customers?.name || "";
+        return customerName.toLowerCase().includes(q);
       });
     }
+
+    // Sort: marah (angry) sentiment first, then by updatedAt descending
     result.sort((a, b) => {
       const sentimentOrder: Record<Sentiment, number> = { marah: 0, netral: 1, puas: 2 };
-      const sa = sentimentOrder[a.sentiment];
-      const sb = sentimentOrder[b.sentiment];
+      const sa = sentimentOrder[a.sentiment as Sentiment] ?? 1;
+      const sb = sentimentOrder[b.sentiment as Sentiment] ?? 1;
       if (sa !== sb) return sa - sb;
-      return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+      return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
     });
-    return result;
-  }, [search, statusFilter]);
 
-  const counts = useMemo(() => ({
-    all: conversations.length,
-    open: conversations.filter((c) => c.status === "open").length,
-    pending: conversations.filter((c) => c.status === "pending").length,
-    closed: conversations.filter((c) => c.status === "closed").length,
-  }), []);
+    return result;
+  }, [conversationsList, search, statusFilter]);
+
+  // 4. Tab badge counts
+  const counts = useMemo(() => {
+    return {
+      all: conversationsList.length,
+      open: conversationsList.filter((c) => c.status === "open").length,
+      pending: conversationsList.filter((c) => c.status === "pending").length,
+      closed: conversationsList.filter((c) => c.status === "closed").length,
+    };
+  }, [conversationsList]);
 
   return (
     <div className="space-y-6 animate-in">
@@ -135,7 +240,7 @@ export default function InboxPage() {
         </div>
         <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground bg-card border border-border/80 px-3.5 py-2 rounded-xl shadow-xs self-start sm:self-center">
           <MessageSquare className="h-3.5 w-3.5 text-primary" />
-          <span>{conversations.length} total percakapan</span>
+          <span>{conversationsList.length} total percakapan</span>
         </div>
       </div>
 
@@ -174,8 +279,14 @@ export default function InboxPage() {
         </Tabs>
       </div>
 
-      {/* Conversation list */}
-      {filteredConversations.length === 0 ? (
+      {/* Skeletons Loading */}
+      {loading ? (
+        <div className="space-y-3">
+          <Skeleton className="h-20 w-full rounded-xl" />
+          <Skeleton className="h-20 w-full rounded-xl" />
+          <Skeleton className="h-20 w-full rounded-xl" />
+        </div>
+      ) : filteredConversations.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center bg-card border border-border/80 rounded-2xl p-8 shadow-xs">
           <div className="p-5 rounded-2xl bg-muted/50 mb-4 text-muted-foreground">
             <Inbox className="h-9 w-9" />
@@ -190,14 +301,23 @@ export default function InboxPage() {
       ) : (
         <div className="space-y-2">
           {filteredConversations.map((conv, idx) => {
-            const customer = getCustomerById(conv.customerId);
-            const agent = conv.agentId ? getAgentById(conv.agentId) : null;
-            const msgs = getMessagesByConversationId(conv.id);
-            const lastMsg = msgs[msgs.length - 1];
-            const sentimentCfg = sentimentConfig[conv.sentiment];
-            const statusCfg = statusConfig[conv.status];
+            const customer = conv.customers;
+            const agent = conv.profiles;
+            const msgs = conv.messages || [];
+            
+            // Sort messages to get the last one
+            const sortedMsgs = [...msgs].sort(
+              (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+            );
+            const lastMsg = sortedMsgs[sortedMsgs.length - 1];
+            
+            const sentimentCfg = sentimentConfig[conv.sentiment as Sentiment] || sentimentConfig.netral;
+            const statusCfg = statusConfig[conv.status as ConversationStatus] || statusConfig.open;
             const SentimentIcon = sentimentCfg.icon;
             const StatusIcon = statusCfg.icon;
+
+            // Check unread condition (either local unread flag, or if last message is sent by customer and convo not closed)
+            const isUnread = conv.unread || (lastMsg && lastMsg.sender_type === "customer" && conv.status !== "closed");
 
             return (
               <Link
@@ -206,28 +326,28 @@ export default function InboxPage() {
                 className={cn(
                   "group block p-4 rounded-xl border bg-card transition-all duration-200 relative overflow-hidden",
                   "hover:border-primary/25 hover:shadow-xs hover:-translate-y-0.5",
-                  conv.unread
+                  isUnread
                     ? "border-primary/20 bg-primary/[0.01]"
                     : "border-border/85"
                 )}
-                style={{ animationDelay: `${idx * 40}ms` }}
+                style={{ animationDelay: `${idx * 30}ms` }}
               >
                 {/* Vertical active highlight bar */}
-                {conv.unread && (
+                {isUnread && (
                   <span className="absolute top-0 left-0 bottom-0 w-1.5 bg-primary" />
                 )}
 
                 <div className="flex items-start gap-4">
-                  {/* Avatar with status indicator */}
+                  {/* Avatar */}
                   <div className="relative shrink-0">
                     <div className={cn(
                       "h-12 w-12 rounded-full flex items-center justify-center text-sm font-semibold ring-2 ring-background shadow-xs",
                       sentimentCfg.bg,
                       sentimentCfg.color
                     )}>
-                      {customer?.name.split(" ").map((n) => n[0]).join("") ?? "?"}
+                      {customer?.name?.split(" ").map((n: string) => n[0]).join("") ?? "?"}
                     </div>
-                    {conv.unread && (
+                    {isUnread && (
                       <span className="absolute -top-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-primary ring-2 ring-card animate-pulse" />
                     )}
                   </div>
@@ -238,12 +358,12 @@ export default function InboxPage() {
                       <div className="flex items-center gap-2.5 min-w-0">
                         <span className={cn(
                           "text-sm truncate",
-                          conv.unread ? "font-bold text-foreground" : "font-semibold text-foreground/90"
+                          isUnread ? "font-bold text-foreground" : "font-semibold text-foreground/90"
                         )}>
-                          {customer?.name}
+                          {customer?.name || "Pelanggan Anonim"}
                         </span>
                         
-                        {/* Sentiment Badge */}
+                        {/* Sentiment */}
                         <Badge
                           variant="outline"
                           className={cn(
@@ -259,19 +379,19 @@ export default function InboxPage() {
                       </div>
                       
                       <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0 font-medium">
-                        {timeAgo(conv.updatedAt)}
+                        {timeAgo(conv.updated_at)}
                       </span>
                     </div>
 
                     <p className={cn(
                       "text-sm truncate mb-3 leading-relaxed",
-                      conv.unread ? "text-foreground/80 font-medium" : "text-muted-foreground"
+                      isUnread ? "text-foreground/80 font-medium" : "text-muted-foreground"
                     )}>
-                      {lastMsg?.content}
+                      {lastMsg?.content || "Belum ada pesan."}
                     </p>
 
                     <div className="flex items-center gap-2.5 flex-wrap text-[11px] font-medium">
-                      {/* Status Badge */}
+                      {/* Status */}
                       <span className={cn(
                         "inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md border",
                         statusCfg.bg,
@@ -282,7 +402,7 @@ export default function InboxPage() {
                         {statusCfg.label}
                       </span>
 
-                      {/* Agent Badge */}
+                      {/* Agent */}
                       {agent ? (
                         <span className="text-xs text-muted-foreground flex items-center gap-1.5 bg-muted/40 px-2 py-0.5 rounded-md border border-border/40">
                           <User className="h-3.5 w-3.5 text-muted-foreground" />
@@ -295,8 +415,8 @@ export default function InboxPage() {
                         </span>
                       )}
 
-                      {/* AI Assisted marker */}
-                      {conv.aiSummary && (
+                      {/* Summary indicator */}
+                      {conv.ai_summary && (
                         <span className="text-[10px] text-primary bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-md flex items-center gap-1 font-semibold">
                           <Sparkles className="h-2.5 w-2.5" />
                           AI Diringkas

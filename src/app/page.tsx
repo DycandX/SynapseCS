@@ -18,6 +18,7 @@ import {
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("demo123");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -36,21 +37,22 @@ export default function LoginPage() {
     setError("");
     setIsLoading(true);
     await new Promise((r) => setTimeout(r, 800));
-    const success = login(email);
+    const success = await login(email, password);
     if (success) {
       router.push("/dashboard");
     } else {
-      setError("Email tidak ditemukan. Gunakan salah satu akun demo.");
+      setError("Autentikasi gagal. Gunakan akun demo atau daftarkan email baru.");
       setIsLoading(false);
     }
   };
 
   const handleQuickLogin = async (userEmail: string) => {
     setEmail(userEmail);
+    setPassword("demo123");
     setError("");
     setIsLoading(true);
     await new Promise((r) => setTimeout(r, 500));
-    login(userEmail);
+    await login(userEmail, "demo123");
     router.push("/dashboard");
   };
 
@@ -165,7 +167,8 @@ export default function LoginPage() {
                   id="password"
                   type="password"
                   placeholder="••••••••"
-                  defaultValue="demo123"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   className="h-11"
                 />
                 <p className="text-xs text-muted-foreground">

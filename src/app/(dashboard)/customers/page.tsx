@@ -1,9 +1,12 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
+import { useAuth } from "@/components/auth-provider";
+import { supabase } from "@/lib/supabase";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Search,
   Mail,
@@ -12,10 +15,12 @@ import {
   Calendar,
   Users,
   ArrowRight,
-  UserCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { customers, getConversationsByCustomerId } from "@/lib/dummy-data";
+import {
+  customers as dummyCustomers,
+  getConversationsByCustomerId,
+} from "@/lib/dummy-data";
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString("id-ID", {
@@ -26,18 +31,76 @@ function formatDate(dateStr: string): string {
 }
 
 export default function CustomersPage() {
+  const { isUsingSupabase } = useAuth();
+  
+  const [customersList, setCustomersList] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
 
+  // 1. Fetch customers
+  useEffect(() => {
+    const fetchCustomers = async () => {
+      setLoading(true);
+      if (isUsingSupabase) {
+        try {
+          const { data, error } = await supabase
+            .from("customers")
+            .select(`
+              *,
+              conversations(id, status)
+            `)
+            .order("name", { ascending: true });
+
+          if (error) throw error;
+          
+          const mapped = (data || []).map((c: any) => ({
+            id: c.id,
+            name: c.name,
+            email: c.email,
+            phone: c.phone,
+            created_at: c.created_at,
+            totalConversations: c.conversations?.length || 0,
+            openConversations: c.conversations?.filter((cv: any) => cv.status === "open").length || 0,
+          }));
+          setCustomersList(mapped);
+        } catch (error) {
+          console.error("Failed to load customers from Supabase:", error);
+        } finally {
+          setLoading(false);
+        }
+      } else {
+        // Dummy mapping
+        const mapped = dummyCustomers.map((c) => {
+          const convos = getConversationsByCustomerId(c.id);
+          return {
+            id: c.id,
+            name: c.name,
+            email: c.email,
+            phone: c.phone,
+            created_at: c.createdAt,
+            totalConversations: convos.length,
+            openConversations: convos.filter((cv) => cv.status === "open").length,
+          };
+        });
+        setCustomersList(mapped);
+        setLoading(false);
+      }
+    };
+
+    fetchCustomers();
+  }, [isUsingSupabase]);
+
+  // 2. Filter list
   const filteredCustomers = useMemo(() => {
-    if (!search.trim()) return customers;
+    if (!search.trim()) return customersList;
     const q = search.toLowerCase();
-    return customers.filter(
+    return customersList.filter(
       (c) =>
         c.name.toLowerCase().includes(q) ||
         c.email.toLowerCase().includes(q) ||
         c.phone.includes(q)
     );
-  }, [search]);
+  }, [customersList, search]);
 
   return (
     <div className="space-y-6 animate-in">
@@ -53,7 +116,7 @@ export default function CustomersPage() {
         </div>
         <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground bg-card border border-border/80 px-3.5 py-2 rounded-xl shadow-xs self-start sm:self-center">
           <Users className="h-3.5 w-3.5 text-primary" />
-          <span>{customers.length} total pelanggan</span>
+          <span>{customersList.length} total pelanggan</span>
         </div>
       </div>
 
@@ -70,7 +133,13 @@ export default function CustomersPage() {
       </div>
 
       {/* Customers Cards Grid */}
-      {filteredCustomers.length === 0 ? (
+      {loading ? (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <Skeleton className="h-40 rounded-xl" />
+          <Skeleton className="h-40 rounded-xl" />
+          <Skeleton className="h-40 rounded-xl" />
+        </div>
+      ) : filteredCustomers.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center bg-card border border-border/80 rounded-2xl p-8 shadow-xs">
           <div className="p-5 rounded-2xl bg-muted/50 mb-4 text-muted-foreground">
             <Users className="h-9 w-9" />
@@ -83,9 +152,6 @@ export default function CustomersPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {filteredCustomers.map((customer, idx) => {
-            const convos = getConversationsByCustomerId(customer.id);
-            const openCount = convos.filter((c) => c.status === "open").length;
-
             return (
               <Link
                 key={customer.id}
@@ -96,7 +162,7 @@ export default function CustomersPage() {
                 <div className="flex items-start gap-4">
                   {/* Avatar */}
                   <div className="h-12 w-12 rounded-full bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center text-sm font-bold text-primary shrink-0 ring-1 ring-border/80 shadow-xs">
-                    {customer.name.split(" ").map((n) => n[0]).join("")}
+                    {customer.name.split(" ").map((n: string) => n[0]).join("")}
                   </div>
 
                   <div className="flex-1 min-w-0">
@@ -108,7 +174,7 @@ export default function CustomersPage() {
                     </div>
 
                     {/* Customer Meta Info */}
-                    <div className="mt-3 space-y-1.5 text-xs text-muted-foreground">
+                    <div className="mt-3 space-y-1.5 text-xs text-muted-foreground font-medium">
                       <div className="flex items-center gap-2">
                         <Mail className="h-3.5 w-3.5 shrink-0 text-muted-foreground/80" />
                         <span className="truncate">{customer.email}</span>
@@ -119,7 +185,7 @@ export default function CustomersPage() {
                       </div>
                       <div className="flex items-center gap-2">
                         <Calendar className="h-3.5 w-3.5 shrink-0 text-muted-foreground/80" />
-                        <span>Bergabung {formatDate(customer.createdAt)}</span>
+                        <span>Bergabung {formatDate(customer.created_at)}</span>
                       </div>
                     </div>
 
@@ -127,11 +193,11 @@ export default function CustomersPage() {
                     <div className="mt-4 flex items-center gap-2 flex-wrap">
                       <Badge variant="secondary" className="text-[10px] font-semibold gap-1 px-2.5 py-0.5 rounded-md border border-border/40">
                         <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
-                        {convos.length} percakapan
+                        {customer.totalConversations} percakapan
                       </Badge>
-                      {openCount > 0 && (
+                      {customer.openConversations > 0 && (
                         <Badge variant="outline" className="text-[10px] font-semibold gap-1 bg-info/10 text-info border-info/20 px-2.5 py-0.5 rounded-md animate-pulse-soft">
-                          {openCount} terbuka
+                          {customer.openConversations} terbuka
                         </Badge>
                       )}
                     </div>
