@@ -1,11 +1,12 @@
 import type { NextConfig } from "next";
 
-const isProd = process.env.NODE_ENV === "production";
-
 const nextConfig: NextConfig = {
-  // Set assetPrefix to the Vercel domain in production to serve chunks and assets directly from CDN,
-  // preventing 404 errors when accessed via a subfolder reverse proxy path.
-  assetPrefix: isProd ? "https://synapse-cs.vercel.app" : undefined,
+  // 🚀 SOLUSI UTAMA: Beritahu Next.js bahwa aplikasi ini berjalan di sub-folder /synapse-cs
+  basePath: "/synapse-cs",
+
+  // Catatan: Kamu bisa menghapus atau mengomentari baris assetPrefix di bawah ini 
+  // karena basePath secara otomatis menangani perutean aset statis dengan aman.
+  // assetPrefix: process.env.NODE_ENV === "production" ? "https://synapse-cs.vercel.app" : undefined,
 };
 
 export default nextConfig;
