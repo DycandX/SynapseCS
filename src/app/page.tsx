@@ -37,11 +37,11 @@ export default function LoginPage() {
     setError("");
     setIsLoading(true);
     await new Promise((r) => setTimeout(r, 800));
-    const success = await login(email, password);
-    if (success) {
+    const result = await login(email, password);
+    if (result.success) {
       router.push("/dashboard");
     } else {
-      setError("Autentikasi gagal. Gunakan akun demo atau daftarkan email baru.");
+      setError(result.error || "Autentikasi gagal. Gunakan akun demo atau daftarkan email baru.");
       setIsLoading(false);
     }
   };
@@ -52,8 +52,13 @@ export default function LoginPage() {
     setError("");
     setIsLoading(true);
     await new Promise((r) => setTimeout(r, 500));
-    await login(userEmail, "demo123");
-    router.push("/dashboard");
+    const result = await login(userEmail, "demo123");
+    if (result.success) {
+      router.push("/dashboard");
+    } else {
+      setError(result.error || "Autentikasi gagal masuk akun demo.");
+      setIsLoading(false);
+    }
   };
 
   return (

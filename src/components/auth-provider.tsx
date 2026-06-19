@@ -12,7 +12,7 @@ import { supabase } from "@/lib/supabase";
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password?: string) => Promise<boolean>;
+  login: (email: string, password?: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   isAuthenticated: boolean;
   isUsingSupabase: boolean;
@@ -89,7 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const login = async (email: string, password = "demo123"): Promise<boolean> => {
+  const login = async (email: string, password = "demo123"): Promise<{ success: boolean; error?: string }> => {
     if (IS_SUPABASE_CONFIGURED) {
       setIsLoading(true);
       try {
@@ -100,8 +100,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
 
         if (error) {
+          if (error.message.toLowerCase().includes("email not confirmed")) {
+            setIsLoading(false);
+            return {
+              success: false,
+              error: "Email belum dikonfirmasi. Harap nonaktifkan opsi 'Confirm email' di Dashboard Supabase Anda (Authentication -> Providers -> Email -> centang matikan 'Confirm email' lalu simpan).",
+            };
+          }
+
           // If user doesn't exist, try to sign up automatically for demo purposes
-          if (error.message.includes("Invalid login credentials")) {
+          if (
+            error.message.includes("Invalid login credentials") ||
+            error.message.includes("User not found")
+          ) {
             const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
               email,
               password,
@@ -116,24 +127,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (signUpError) {
               console.error("Auto signup failed:", signUpError.message);
               setIsLoading(false);
-              return false;
+              return { success: false, error: `Pendaftaran otomatis gagal: ${signUpError.message}` };
             }
 
             if (signUpData.user) {
-              // Sign up success, session might be auto-created
-              return true;
+              // If email confirmation is enabled, session might be null.
+              if (!signUpData.session) {
+                setIsLoading(false);
+                return {
+                  success: false,
+                  error: "Akun demo berhasil didaftarkan! Namun, Anda perlu menonaktifkan opsi 'Confirm email' di Dashboard Supabase agar bisa langsung masuk tanpa verifikasi email.",
+                };
+              }
+              return { success: true };
             }
           }
           console.error("Login failed:", error.message);
           setIsLoading(false);
-          return false;
+          return { success: false, error: error.message };
         }
 
-        return !!data.session;
-      } catch (err) {
+        return { success: !!data.session };
+      } catch (err: any) {
         console.error("Supabase auth error:", err);
         setIsLoading(false);
-        return false;
+        return { success: false, error: err.message || "Terjadi kesalahan koneksi auth." };
       }
     } else {
       // Fallback to dummy data
@@ -142,9 +160,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       );
       if (found) {
         setUser(found);
-        return true;
+        return { success: true };
       }
-      return false;
+      return { success: false, error: "Pengguna tidak ditemukan dalam basis data dummy." };
     }
   };
 
