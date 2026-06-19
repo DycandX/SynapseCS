@@ -147,7 +147,7 @@ Tulis draf balasan Anda sekarang:
         "X-Title": "SynapseCS",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.0-flash-exp:free",
+        model: "google/gemma-4-31b-it:free",
         messages: [{ role: "user", content: prompt }],
       }),
     });
@@ -197,7 +197,7 @@ Kembalikan jawaban dalam format JSON terstruktur dengan skema berikut:
         "X-Title": "SynapseCS",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.0-flash-exp:free",
+        model: "google/gemma-4-31b-it:free",
         messages: [{ role: "user", content: prompt }],
       }),
     });
@@ -276,7 +276,7 @@ Kembalikan respon Anda dalam format JSON array berisi 3 string poin:
         "X-Title": "SynapseCS",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.0-flash-exp:free",
+        model: "google/gemma-4-31b-it:free",
         messages: [{ role: "user", content: prompt }],
       }),
     });
