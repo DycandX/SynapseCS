@@ -240,8 +240,8 @@ export default function ConversationDetailPage({ params }: { params: Promise<{ i
             .eq("conversation_id", id)
             .order("created_at", { ascending: true });
           setMessages(msgs || []);
-        } catch (error) {
-          console.error("Error loading chat details from Supabase:", error);
+        } catch (error: any) {
+          console.error("Error loading chat details from Supabase:", error?.message || error);
         } finally {
           setLoading(false);
         }

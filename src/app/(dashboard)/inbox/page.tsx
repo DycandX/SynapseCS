@@ -120,8 +120,8 @@ export default function InboxPage() {
 
       if (error) throw error;
       setConversationsList(data || []);
-    } catch (err) {
-      console.error("Failed to load conversations from Supabase:", err);
+    } catch (err: any) {
+      console.error("Failed to load conversations from Supabase:", err?.message || err?.details || err);
     } finally {
       setLoading(false);
     }

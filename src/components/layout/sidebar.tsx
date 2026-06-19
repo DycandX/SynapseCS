@@ -135,8 +135,8 @@ function SidebarContent({
         if (!error && count !== null) {
           setUnreadCount(count);
         }
-      } catch (err) {
-        console.error("Error fetching unread count:", err);
+      } catch (err: any) {
+        console.error("Error fetching unread count:", err?.message || err);
       }
     };
 
