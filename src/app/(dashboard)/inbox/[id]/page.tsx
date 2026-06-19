@@ -848,7 +848,7 @@ export default function ConversationDetailPage({ params }: { params: Promise<{ i
       </div>
 
       {/* Right: Customer Profile panel (Desktop Sidebar) */}
-      <div className="hidden lg:block lg:w-80 shrink-0 border border-border/80 rounded-2xl bg-card shadow-xs overflow-hidden">
+      <div className="hidden lg:block lg:w-80 shrink-0 border border-border/80 rounded-2xl bg-card shadow-xs overflow-y-auto scrollbar-thin">
         <CustomerProfileContent />
       </div>
     </div>
