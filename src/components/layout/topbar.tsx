@@ -15,10 +15,11 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Menu, Sun, Moon, Bell, LogOut, User, Sparkles } from "lucide-react";
+import { Menu, Sun, Moon, Bell, LogOut, User } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabase";
 
 interface TopBarProps {
   onMenuClick: () => void;
@@ -26,8 +27,48 @@ interface TopBarProps {
 
 export function TopBar({ onMenuClick }: TopBarProps) {
   const { theme, toggleTheme } = useTheme();
-  const { user, logout } = useAuth();
+  const { user, logout, isUsingSupabase } = useAuth();
   const [notifHover, setNotifHover] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    if (!isUsingSupabase) {
+      setUnreadCount(3);
+      return;
+    }
+
+    const fetchUnreadCount = async () => {
+      try {
+        const { count, error } = await supabase
+          .from("conversations")
+          .select("id", { count: "exact", head: true })
+          .eq("status", "open");
+
+        if (!error && count !== null) {
+          setUnreadCount(count);
+        }
+      } catch (err: any) {
+        console.error("Error fetching unread count in topbar:", err);
+      }
+    };
+
+    fetchUnreadCount();
+
+    const channel = supabase
+      .channel("topbar-unread-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "conversations" },
+        () => {
+          fetchUnreadCount();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [isUsingSupabase]);
 
   return (
     <header className="h-14 border-b bg-card/80 backdrop-blur-md flex items-center gap-3 px-4 shrink-0 sticky top-0 z-30">
@@ -56,11 +97,13 @@ export function TopBar({ onMenuClick }: TopBarProps) {
             aria-label="Notifikasi"
           >
             <Bell className={cn("h-4 w-4 transition-transform duration-200", notifHover && "animate-bounce")} />
-            <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 px-1 text-[10px] flex items-center justify-center bg-destructive text-destructive-foreground rounded-full border-2 border-card font-medium">
-              3
-            </span>
+            {unreadCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 px-1 text-[10px] flex items-center justify-center bg-destructive text-destructive-foreground rounded-full border-2 border-card font-medium">
+                {unreadCount}
+              </span>
+            )}
           </TooltipTrigger>
-          <TooltipContent>Notifikasi</TooltipContent>
+          <TooltipContent>Notifikasi ({unreadCount} tiket terbuka)</TooltipContent>
         </Tooltip>
 
         {/* Theme toggle */}

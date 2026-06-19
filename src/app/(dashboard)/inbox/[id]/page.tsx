@@ -6,7 +6,6 @@ import { useAuth } from "@/components/auth-provider";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/lib/supabase";
@@ -14,12 +13,20 @@ import {
   getAIDraftAction,
   getAISummaryAction,
   sendMessageAction,
+  claimConversationAction,
 } from "@/app/actions";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import {
   ArrowLeft,
   Sparkles,
@@ -177,7 +184,7 @@ function MessageBubble({ msg }: { msg: ChatMessage }) {
 
 export default function ConversationDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const { isUsingSupabase } = useAuth();
+  const { user: currentUser, isUsingSupabase } = useAuth();
   
   // States
   const [conversation, setConversation] = useState<any | null>(null);
@@ -194,6 +201,7 @@ export default function ConversationDetailPage({ params }: { params: Promise<{ i
   const [aiDraftText, setAiDraftText] = useState("");
   const [aiSummaryPoints, setAiSummaryPoints] = useState<string[]>([]);
   const [copied, setCopied] = useState(false);
+  const [claiming, setClaiming] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // 1. Fetch data based on Auth provider mode (Supabase or Dummy)
@@ -231,6 +239,8 @@ export default function ConversationDetailPage({ params }: { params: Promise<{ i
               .eq("id", convo.agent_id)
               .single();
             setAgent(agt);
+          } else {
+            setAgent(null);
           }
 
           // Fetch messages
@@ -317,7 +327,22 @@ export default function ConversationDetailPage({ params }: { params: Promise<{ i
             sentiment: updatedConvo.sentiment,
             status: updatedConvo.status,
             ai_summary: updatedConvo.ai_summary,
+            agent_id: updatedConvo.agent_id,
           }));
+
+          // Fetch agent profile if changed
+          if (updatedConvo.agent_id) {
+            supabase
+              .from("profiles")
+              .select("*")
+              .eq("id", updatedConvo.agent_id)
+              .single()
+              .then(({ data }) => {
+                if (data) setAgent(data);
+              });
+          } else {
+            setAgent(null);
+          }
         }
       )
       .subscribe();
@@ -331,6 +356,24 @@ export default function ConversationDetailPage({ params }: { params: Promise<{ i
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Handle claiming ticket
+  const handleClaimTicket = async () => {
+    if (!currentUser || !id) return;
+    setClaiming(true);
+    const success = await claimConversationAction(id, currentUser.id);
+    if (success) {
+      setAgent({
+        id: currentUser.id,
+        name: currentUser.name,
+        role: currentUser.role,
+      });
+      setConversation((prev: any) => ({ ...prev, agent_id: currentUser.id }));
+    } else {
+      alert("Gagal mengklaim tiket obrolan.");
+    }
+    setClaiming(false);
+  };
 
   if (loading) {
     return (
@@ -447,6 +490,128 @@ export default function ConversationDetailPage({ params }: { params: Promise<{ i
     }
   };
 
+  // Shared Customer Profile content renderer
+  function CustomerProfileContent() {
+    return (
+      <div className="p-5">
+        <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-4">
+          Profil Pelanggan
+        </h3>
+
+        <div className="flex flex-col items-center text-center mb-5">
+          <div className={cn(
+            "h-16 w-16 rounded-full flex items-center justify-center text-xl font-bold mb-3 ring-4 ring-background shadow-xs",
+            sentimentCfg.bg, sentimentCfg.color
+          )}>
+            {customer?.name.split(" ").map((n: string) => n[0]).join("") ?? "?"}
+          </div>
+          <h4 className="font-bold text-sm text-foreground">{customer?.name}</h4>
+          <p className="text-xs text-muted-foreground mt-0.5">{customer?.email}</p>
+        </div>
+
+        <Separator className="mb-4 bg-border/60" />
+
+        <div className="space-y-3">
+          <div className="flex items-center gap-3 text-xs font-medium">
+            <div className="p-2 rounded-lg bg-muted text-muted-foreground border border-border/40 shrink-0">
+              <Mail className="h-3.5 w-3.5" />
+            </div>
+            <span className="truncate">{customer?.email}</span>
+          </div>
+          <div className="flex items-center gap-3 text-xs font-medium">
+            <div className="p-2 rounded-lg bg-muted text-muted-foreground border border-border/40 shrink-0">
+              <Phone className="h-3.5 w-3.5" />
+            </div>
+            <span>{customer?.phone}</span>
+          </div>
+          <div className="flex items-center gap-3 text-xs font-medium">
+            <div className="p-2 rounded-lg bg-muted text-muted-foreground border border-border/40 shrink-0">
+              <Calendar className="h-3.5 w-3.5" />
+            </div>
+            <span>Bergabung {customer ? formatDate(customer.created_at || customer.createdAt) : "-"}</span>
+          </div>
+        </div>
+
+        <Separator className="my-4 bg-border/60" />
+
+        <div>
+          <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-3">
+            Rincian Tiket
+          </h4>
+          <div className="space-y-2.5 text-xs font-medium text-foreground/90">
+            <div className="flex justify-between items-center">
+              <span className="text-muted-foreground">ID Tiket</span>
+              <span className="font-mono text-[10px] text-foreground/70 truncate max-w-[140px]" title={conversation.id}>
+                {conversation.id}
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-muted-foreground">Status</span>
+              <Badge
+                variant="outline"
+                className={cn(
+                  "inline-flex items-center gap-0.5 text-[9px] font-semibold px-1.5 py-0.5 rounded-md border",
+                  statusCfg.bg, statusCfg.color, statusCfg.border
+                )}
+              >
+                <StatusIcon className="h-3 w-3" />
+                {statusCfg.label}
+              </Badge>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-muted-foreground">Sentimen</span>
+              <Badge
+                variant="outline"
+                className={cn(
+                  "inline-flex items-center gap-0.5 text-[9px] font-semibold px-1.5 py-0.5 rounded-md border",
+                  sentimentCfg.bg, sentimentCfg.color, sentimentCfg.border
+                )}
+              >
+                <SentimentIcon className="h-3 w-3" />
+                {sentimentCfg.label}
+              </Badge>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-muted-foreground">Agen CS</span>
+              <div className="text-xs font-semibold">
+                {agent?.name ? (
+                  <span className="font-bold">{agent.name}</span>
+                ) : (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-destructive animate-pulse-soft font-semibold text-[11px]">Belum ditugaskan</span>
+                    {isUsingSupabase && currentUser && (
+                      <button
+                        onClick={handleClaimTicket}
+                        disabled={claiming}
+                        className="text-[9px] text-primary hover:underline font-bold cursor-pointer bg-primary/10 px-1.5 py-0.5 rounded-md border border-primary/20"
+                      >
+                        {claiming ? "Klaim..." : "Klaim"}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {conversation.ai_summary && (
+          <>
+            <Separator className="my-4 bg-border/60" />
+            <div>
+              <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2.5">
+                Ringkasan Sebelumnya (AI)
+              </h4>
+              <p className="text-xs text-foreground/80 leading-relaxed bg-muted/40 rounded-xl p-3 border border-border/40 font-medium">
+                {conversation.ai_summary}
+              </p>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col lg:flex-row gap-4 h-[calc(100vh-7.5rem)] animate-in">
       {/* Left: Chat area */}
@@ -479,7 +644,7 @@ export default function ConversationDetailPage({ params }: { params: Promise<{ i
                 )}
               >
                 <SentimentIcon className="h-2.5 w-2.5" />
-                {sentimentCfg.label}
+                <span className="hidden xs:inline">{sentimentCfg.label}</span>
               </Badge>
               <Badge
                 variant="outline"
@@ -489,16 +654,39 @@ export default function ConversationDetailPage({ params }: { params: Promise<{ i
                 )}
               >
                 <StatusIcon className="h-2.5 w-2.5" />
-                {statusCfg.label}
+                <span>{statusCfg.label}</span>
               </Badge>
             </div>
           </div>
 
-          {/* AI actions */}
+          {/* Action buttons */}
           <div className="flex items-center gap-1.5 shrink-0">
+            {/* Customer profile trigger on mobile/tablet */}
+            <Sheet>
+              <SheetTrigger
+                render={
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8.5 w-8.5 lg:hidden cursor-pointer rounded-xl border border-border/80 shrink-0"
+                    aria-label="Info Pelanggan"
+                  />
+                }
+              >
+                <User className="h-4 w-4 text-muted-foreground" />
+              </SheetTrigger>
+              <SheetContent side="right" className="w-full sm:w-85 p-0 overflow-y-auto bg-card border-l">
+                <SheetHeader className="sr-only">
+                  <SheetTitle>Profil Pelanggan</SheetTitle>
+                </SheetHeader>
+                <CustomerProfileContent />
+              </SheetContent>
+            </Sheet>
+
+            {/* AI Summary */}
             <Tooltip>
               <TooltipTrigger
-                className="h-8.5 gap-1.5 text-[11px] font-semibold cursor-pointer inline-flex items-center px-3 rounded-xl border border-border/80 hover:bg-accent transition-colors disabled:opacity-50"
+                className="h-8.5 gap-1.5 text-[11px] font-semibold cursor-pointer inline-flex items-center px-2.5 sm:px-3 rounded-xl border border-border/80 hover:bg-accent transition-colors disabled:opacity-50 shrink-0"
                 onClick={handleAiSummary}
                 disabled={aiSummaryLoading}
               >
@@ -508,14 +696,15 @@ export default function ConversationDetailPage({ params }: { params: Promise<{ i
               <TooltipContent side="top">Gunakan Gemini untuk meringkas chat</TooltipContent>
             </Tooltip>
 
+            {/* AI Draft */}
             <Button
               size="sm"
               onClick={handleAiDraft}
               disabled={aiDraftLoading}
-              className="h-8.5 gap-1.5 text-[11px] font-semibold cursor-pointer rounded-xl shadow-xs"
+              className="h-8.5 gap-1.5 text-[11px] font-semibold cursor-pointer rounded-xl shadow-xs px-2.5 sm:px-3 shrink-0"
             >
               <Sparkles className="h-3.5 w-3.5" />
-              <span>AI Draft</span>
+              <span className="hidden sm:inline">AI Draft</span>
             </Button>
           </div>
         </div>
@@ -528,7 +717,7 @@ export default function ConversationDetailPage({ params }: { params: Promise<{ i
                 <div className="p-1 rounded-md bg-info/15">
                   <ListChecks className="h-3.5 w-3.5" />
                 </div>
-                Ringkasan AI (Gemini 1.5 Flash)
+                Ringkasan AI (OpenRouter)
               </div>
               <button
                 className="h-6 w-6 cursor-pointer inline-flex items-center justify-center rounded-md hover:bg-muted transition-colors text-muted-foreground"
@@ -556,8 +745,8 @@ export default function ConversationDetailPage({ params }: { params: Promise<{ i
           </div>
         )}
 
-        {/* Message Thread */}
-        <ScrollArea className="flex-1 px-4 py-4 scrollbar-thin bg-card">
+        {/* Message Thread (Native scroll responsive container) */}
+        <div className="flex-1 overflow-y-auto px-4 py-4 scrollbar-thin scroll-smooth bg-card [scrollbar-gutter:stable] -webkit-overflow-scrolling-touch">
           <div className="space-y-4 max-w-2xl mx-auto">
             <div className="flex items-center gap-3 justify-center mb-4">
               <span className="text-[10px] font-bold text-muted-foreground bg-muted/60 px-3 py-1 rounded-full border border-border/40">
@@ -574,7 +763,7 @@ export default function ConversationDetailPage({ params }: { params: Promise<{ i
             )}
             <div ref={messagesEndRef} />
           </div>
-        </ScrollArea>
+        </div>
 
         {/* AI Draft Panel */}
         {showAiDraft && (
@@ -584,7 +773,7 @@ export default function ConversationDetailPage({ params }: { params: Promise<{ i
                 <div className="p-1 rounded-md bg-primary/15">
                   <Sparkles className="h-3.5 w-3.5" />
                 </div>
-                Draf AI (RAG & Gemini 1.5 Flash)
+                Draf AI (RAG & OpenRouter)
               </div>
               <button
                 className="h-6 w-6 cursor-pointer inline-flex items-center justify-center rounded-md hover:bg-muted transition-colors text-muted-foreground"
@@ -658,107 +847,9 @@ export default function ConversationDetailPage({ params }: { params: Promise<{ i
         </div>
       </div>
 
-      {/* Right: Customer Profile panel */}
-      <div className="w-full lg:w-80 shrink-0 border border-border/80 rounded-2xl bg-card shadow-xs overflow-hidden">
-        <div className="p-5">
-          <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-4">
-            Profil Pelanggan
-          </h3>
-
-          <div className="flex flex-col items-center text-center mb-5">
-            <div className={cn(
-              "h-16 w-16 rounded-full flex items-center justify-center text-xl font-bold mb-3 ring-4 ring-background shadow-xs",
-              sentimentCfg.bg, sentimentCfg.color
-            )}>
-              {customer?.name.split(" ").map((n: string) => n[0]).join("") ?? "?"}
-            </div>
-            <h4 className="font-bold text-sm text-foreground">{customer?.name}</h4>
-            <p className="text-xs text-muted-foreground mt-0.5">{customer?.email}</p>
-          </div>
-
-          <Separator className="mb-4 bg-border/60" />
-
-          <div className="space-y-3">
-            <div className="flex items-center gap-3 text-xs font-medium">
-              <div className="p-2 rounded-lg bg-muted text-muted-foreground border border-border/40 shrink-0">
-                <Mail className="h-3.5 w-3.5" />
-              </div>
-              <span className="truncate">{customer?.email}</span>
-            </div>
-            <div className="flex items-center gap-3 text-xs font-medium">
-              <div className="p-2 rounded-lg bg-muted text-muted-foreground border border-border/40 shrink-0">
-                <Phone className="h-3.5 w-3.5" />
-              </div>
-              <span>{customer?.phone}</span>
-            </div>
-            <div className="flex items-center gap-3 text-xs font-medium">
-              <div className="p-2 rounded-lg bg-muted text-muted-foreground border border-border/40 shrink-0">
-                <Calendar className="h-3.5 w-3.5" />
-              </div>
-              <span>Bergabung {customer ? formatDate(customer.created_at || customer.createdAt) : "-"}</span>
-            </div>
-          </div>
-
-          <Separator className="my-4 bg-border/60" />
-
-          <div>
-            <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-3">
-              Rincian Tiket
-            </h4>
-            <div className="space-y-2.5 text-xs font-medium text-foreground/90">
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground">ID Tiket</span>
-                <span className="font-mono text-[10px] text-foreground/70">{conversation.id}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground">Status</span>
-                <Badge
-                  variant="outline"
-                  className={cn(
-                    "inline-flex items-center gap-0.5 text-[9px] font-semibold px-1.5 py-0.5 rounded-md border",
-                    statusCfg.bg, statusCfg.color, statusCfg.border
-                  )}
-                >
-                  <StatusIcon className="h-3 w-3" />
-                  {statusCfg.label}
-                </Badge>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground">Sentimen</span>
-                <Badge
-                  variant="outline"
-                  className={cn(
-                    "inline-flex items-center gap-0.5 text-[9px] font-semibold px-1.5 py-0.5 rounded-md border",
-                    sentimentCfg.bg, sentimentCfg.color, sentimentCfg.border
-                  )}
-                >
-                  <SentimentIcon className="h-3 w-3" />
-                  {sentimentCfg.label}
-                </Badge>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground">Agen CS</span>
-                <span className="text-xs font-bold">
-                  {agent?.name ?? <span className="text-destructive animate-pulse-soft font-semibold">Belum ditugaskan</span>}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {conversation.ai_summary && (
-            <>
-              <Separator className="my-4 bg-border/60" />
-              <div>
-                <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2.5">
-                  Ringkasan Sebelumnya (AI)
-                </h4>
-                <p className="text-xs text-foreground/80 leading-relaxed bg-muted/40 rounded-xl p-3 border border-border/40 font-medium">
-                  {conversation.ai_summary}
-                </p>
-              </div>
-            </>
-          )}
-        </div>
+      {/* Right: Customer Profile panel (Desktop Sidebar) */}
+      <div className="hidden lg:block lg:w-80 shrink-0 border border-border/80 rounded-2xl bg-card shadow-xs overflow-hidden">
+        <CustomerProfileContent />
       </div>
     </div>
   );

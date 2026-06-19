@@ -45,7 +45,7 @@ export default function DashboardLayout({
         <TopBar
           onMenuClick={() => setMobileSidebarOpen(true)}
         />
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6 scrollbar-thin">
+        <main className="flex-1 overflow-y-auto p-4 lg:p-6 scrollbar-thin scroll-smooth">
           {children}
         </main>
       </div>

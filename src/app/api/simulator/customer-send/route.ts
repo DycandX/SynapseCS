@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/utils/supabase/server";
+import { cookies } from "next/headers";
 import { sendMessageAction } from "@/app/actions";
 
 /**
@@ -25,6 +26,9 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+
+    const cookieStore = await cookies();
+    const supabase = createClient(cookieStore);
 
     // 1. Jika customer_id tidak dikirim, ambil customer pertama di database
     if (!customer_id) {

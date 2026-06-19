@@ -1,6 +1,7 @@
 "use server";
 
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/utils/supabase/server";
+import { cookies } from "next/headers";
 import {
   generateAIDraft,
   generateConversationSummary,
@@ -8,6 +9,130 @@ import {
   getEmbedding,
 } from "@/lib/ai";
 import { sendUrgentAlertEmail } from "@/lib/resend";
+
+/**
+ * Server Action: Mencatat log aktivitas audit ke database (Standar Industri).
+ */
+export async function logActivityAction(
+  action: string,
+  description: string,
+  metadata?: any
+): Promise<boolean> {
+  try {
+    const cookieStore = await cookies();
+    const supabase = createClient(cookieStore);
+
+    // Ambil user ID dari sesi yang sedang aktif
+    const { data: { session } } = await supabase.auth.getSession();
+    const userId = session?.user?.id || null;
+
+    const { error } = await supabase.from("activity_logs").insert({
+      user_id: userId,
+      action,
+      description,
+      metadata: metadata || null,
+    });
+
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    console.error("Action error logging activity:", error);
+    return false;
+  }
+}
+
+/**
+ * Server Action: Mengambil daftar log aktivitas audit (Admin only / Agent).
+ */
+export async function getActivityLogsAction() {
+  try {
+    const cookieStore = await cookies();
+    const supabase = createClient(cookieStore);
+
+    const { data, error } = await supabase
+      .from("activity_logs")
+      .select(`
+        id,
+        action,
+        description,
+        metadata,
+        created_at,
+        profiles (name, role)
+      `)
+      .order("created_at", { ascending: false })
+      .limit(50);
+
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error("Action error fetching activity logs:", error);
+    return [];
+  }
+}
+
+/**
+ * Server Action: Mengambil seluruh tim agen dan admin dari Supabase.
+ */
+export async function getProfilesAction() {
+  try {
+    const cookieStore = await cookies();
+    const supabase = createClient(cookieStore);
+
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id, name, email, role, updated_at")
+      .order("name", { ascending: true });
+
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error("Action error fetching profiles:", error);
+    return [];
+  }
+}
+
+/**
+ * Server Action: Menugaskan (klaim) tiket ke agen tertentu.
+ */
+export async function claimConversationAction(
+  conversationId: string,
+  agentId: string
+): Promise<boolean> {
+  try {
+    const cookieStore = await cookies();
+    const supabase = createClient(cookieStore);
+
+    // Perbarui agent_id di database
+    const { error } = await supabase
+      .from("conversations")
+      .update({
+        agent_id: agentId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", conversationId);
+
+    if (error) throw error;
+
+    // Catat log aktivitas klaim tiket
+    const { data: agentProfile } = await supabase
+      .from("profiles")
+      .select("name")
+      .eq("id", agentId)
+      .single();
+
+    const agentName = agentProfile?.name || "Agen";
+    await logActivityAction(
+      "CLAIM_TICKET",
+      `${agentName} telah mengklaim tiket obrolan #${conversationId}`,
+      { conversationId, agentId }
+    );
+
+    return true;
+  } catch (error) {
+    console.error("Action error claiming conversation:", error);
+    return false;
+  }
+}
 
 /**
  * Server Action: Menghasilkan draf balasan AI dengan konteks RAG SOP.
@@ -34,11 +159,21 @@ export async function getAISummaryAction(
     const summaryPoints = await generateConversationSummary(conversationId);
     const summaryText = summaryPoints.join(" \n");
 
+    const cookieStore = await cookies();
+    const supabase = createClient(cookieStore);
+
     // Simpan ringkasan ke tabel conversations di Supabase
     await supabase
       .from("conversations")
       .update({ ai_summary: summaryText, updated_at: new Date().toISOString() })
       .eq("id", conversationId);
+
+    // Catat log audit aktivitas ringkasan AI
+    await logActivityAction(
+      "AI_SUMMARY",
+      `AI menyusun ringkasan obrolan untuk tiket #${conversationId}`,
+      { conversationId }
+    );
 
     return summaryPoints;
   } catch (error) {
@@ -58,6 +193,9 @@ export async function sendMessageAction(
   attachmentUrl?: string
 ) {
   try {
+    const cookieStore = await cookies();
+    const supabase = createClient(cookieStore);
+
     // 1. Masukkan pesan ke tabel messages
     const { data: message, error: messageError } = await supabase
       .from("messages")
@@ -78,7 +216,16 @@ export async function sendMessageAction(
       .update({ updated_at: new Date().toISOString() })
       .eq("id", conversationId);
 
-    // 3. Jika pesan dikirim oleh pelanggan, jalankan analisis sentimen AI
+    // 3. Jika pesan dikirim oleh agen, catat di log aktivitas audit
+    if (senderType === "agent") {
+      await logActivityAction(
+        "SEND_MESSAGE",
+        `Agen mengirim balasan ke tiket #${conversationId}`,
+        { conversationId, messageId: message.id }
+      );
+    }
+
+    // 4. Jika pesan dikirim oleh pelanggan, jalankan analisis sentimen AI
     if (senderType === "customer") {
       const sentiment = await analyzeSentiment(content);
 
@@ -109,6 +256,13 @@ export async function sendMessageAction(
           sender_type: "ai_system",
           content: systemLogContent,
         });
+
+        // Catat di log audit aktivitas sistem
+        await logActivityAction(
+          "SYSTEM_ESCALATION",
+          `Eskalasi darurat otomatis dipicu untuk tiket #${conversationId} (Sentimen: MARAH)`,
+          { conversationId, customerName }
+        );
       }
     }
 
@@ -124,6 +278,9 @@ export async function sendMessageAction(
  */
 export async function getSOPsAction() {
   try {
+    const cookieStore = await cookies();
+    const supabase = createClient(cookieStore);
+
     const { data, error } = await supabase
       .from("knowledge_embeddings")
       .select("id, title, content, updated_at")
@@ -146,6 +303,9 @@ export async function addSOPAction(
   content: string
 ): Promise<boolean> {
   try {
+    const cookieStore = await cookies();
+    const supabase = createClient(cookieStore);
+
     // 1. Hasilkan embedding 768 dimensi via Gemini text-embedding-004
     const embedding = await getEmbedding(content);
 
@@ -157,9 +317,25 @@ export async function addSOPAction(
     });
 
     if (error) throw error;
+
+    // Catat log aktivitas penambahan SOP
+    await logActivityAction(
+      "ADD_SOP",
+      `Agen menambahkan dokumen SOP baru: "${title}"`,
+      { title }
+    );
+
     return true;
   } catch (error) {
     console.error("Action error adding SOP with vector embedding:", error);
+    
+    // Catat log aktivitas kegagalan penambahan SOP
+    await logActivityAction(
+      "SYSTEM_ERROR",
+      `Gagal menambahkan dokumen SOP "${title}" akibat kendala teknis.`,
+      { title, error: (error as any).message || String(error) }
+    );
+
     return false;
   }
 }
@@ -169,6 +345,9 @@ export async function addSOPAction(
  */
 export async function getDashboardStatsAction() {
   try {
+    const cookieStore = await cookies();
+    const supabase = createClient(cookieStore);
+
     // Tarik data mentah dari database
     const { data: convos } = await supabase.from("conversations").select("id, status, sentiment");
     const { count: totalCustomers } = await supabase.from("customers").select("*", { count: "exact", head: true });

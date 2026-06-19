@@ -152,6 +152,16 @@ Tulis draf balasan Anda sekarang:
       }),
     });
 
+    if (!response.ok) {
+      const errorText = await response.text();
+      let errorMsg = `HTTP Error ${response.status}`;
+      try {
+        const errorJSON = JSON.parse(errorText);
+        errorMsg = errorJSON.error?.message || errorMsg;
+      } catch {}
+      throw new Error(`OpenRouter API error: ${errorMsg}`);
+    }
+
     const data = await response.json();
     if (data.choices && data.choices[0]) {
       return data.choices[0].message.content.trim();
@@ -201,6 +211,16 @@ Kembalikan jawaban dalam format JSON terstruktur dengan skema berikut:
         messages: [{ role: "user", content: prompt }],
       }),
     });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      let errorMsg = `HTTP Error ${response.status}`;
+      try {
+        const errorJSON = JSON.parse(errorText);
+        errorMsg = errorJSON.error?.message || errorMsg;
+      } catch {}
+      throw new Error(`OpenRouter Sentiment API error: ${errorMsg}`);
+    }
 
     const data = await response.json();
     if (data.choices && data.choices[0]) {
@@ -280,6 +300,16 @@ Kembalikan respon Anda dalam format JSON array berisi 3 string poin:
         messages: [{ role: "user", content: prompt }],
       }),
     });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      let errorMsg = `HTTP Error ${response.status}`;
+      try {
+        const errorJSON = JSON.parse(errorText);
+        errorMsg = errorJSON.error?.message || errorMsg;
+      } catch {}
+      throw new Error(`OpenRouter Summary API error: ${errorMsg}`);
+    }
 
     const data = await response.json();
     if (data.choices && data.choices[0]) {

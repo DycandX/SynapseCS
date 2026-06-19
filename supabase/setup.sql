@@ -165,7 +165,37 @@ on conflict (email) do nothing;
 insert into public.knowledge_embeddings (id, title, content, embedding) values
   ('b0000000-0000-0000-0000-000000000001', 'SOP Penanganan Keluhan Pelanggan', 'Langkah 1: Sapa pelanggan dengan ramah dan empati. Langkah 2: Identifikasi masalah utama. Langkah 3: Berikan solusi sesuai kebijakan. Langkah 4: Follow-up dalam 24 jam. Langkah 5: Pastikan pelanggan puas sebelum menutup tiket.', array_fill(0, ARRAY[768])::vector),
   ('b0000000-0000-0000-0000-000000000002', 'SOP Pengembalian Dana (Refund)', 'Refund dapat diproses jika: 1) Pesanan dibatalkan sebelum dikirim. 2) Barang cacat/rusak saat diterima (sertakan foto). 3) Barang tidak sesuai deskripsi. Proses refund: 3-5 hari kerja ke rekening asal. Batas waktu klaim: 7 hari setelah penerimaan.', array_fill(0, ARRAY[768])::vector),
-  ('b0000000-0000-0000-0000-000000000003', 'SOP Perubahan Alamat Pengiriman', 'Perubahan alamat hanya bisa dilakukan jika pesanan belum masuk proses pengiriman (status: Diproses). Hubungi tim logistik melalui channel internal untuk update. Konfirmasi perubahan ke pelanggan via chat.', array_fill(0, ARRAY[768])::vector),
+  ('b0000000-0000-0000-0000-000000000003', 'SOP Perubahan Alamat Pengiriman', 'Perubahan alamat hanya bisa dilakukan jika pesanan belum masuk proses pengiriman (status: Diproses). Hubungi tim logistik melalui channel internal untuk update. Konfirmasi perubahan via chat.', array_fill(0, ARRAY[768])::vector),
   ('b0000000-0000-0000-0000-000000000004', 'SOP Eskalasi Masalah ke Supervisor', 'Eskalasi diperlukan jika: 1) Pelanggan mengancam tindakan hukum. 2) Nilai transaksi di atas Rp 5.000.000. 3) Masalah teknis yang tidak bisa diselesaikan agen. 4) Pelanggan meminta bicara dengan atasan. Catat semua detail sebelum eskalasi.', array_fill(0, ARRAY[768])::vector),
   ('b0000000-0000-0000-0000-000000000005', 'SOP Reset Password Pelanggan', 'Langkah 1: Verifikasi identitas pelanggan (email + nomor telepon terdaftar). Langkah 2: Kirim link reset password via email terdaftar. Langkah 3: Jika email tidak bisa diakses, lakukan verifikasi KTP. Langkah 4: Reset manual oleh admin teknis.', array_fill(0, ARRAY[768])::vector)
 on conflict do nothing;
+
+-- 10. Create Activity Logs Table for Auditing (Industry Standard)
+create table if not exists public.activity_logs (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references public.profiles(id) on delete set null,
+  action text not null,
+  description text not null,
+  metadata jsonb,
+  created_at timestamp with time zone default timezone('utc'::text, now())
+);
+
+-- Enable RLS for Activity Logs
+alter table public.activity_logs enable row level security;
+
+-- Policies for Activity Logs
+create policy "Allow read access for authenticated users" on public.activity_logs
+  for select to authenticated using (true);
+
+create policy "Allow insert access for authenticated users" on public.activity_logs
+  for insert to authenticated with check (true);
+
+-- 11. Performance Optimization Indexes
+create index if not exists idx_conversations_customer_id on public.conversations(customer_id);
+create index if not exists idx_conversations_agent_id on public.conversations(agent_id);
+create index if not exists idx_messages_conversation_id on public.messages(conversation_id);
+create index if not exists idx_conversations_updated_at on public.conversations(updated_at desc);
+create index if not exists idx_messages_created_at on public.messages(created_at asc);
+create index if not exists idx_activity_logs_created_at on public.activity_logs(created_at desc);
+create index if not exists idx_activity_logs_user_id on public.activity_logs(user_id);
+

@@ -258,20 +258,20 @@ export default function InboxPage() {
         </div>
 
         <Tabs value={statusFilter} onValueChange={setStatusFilter} className="w-full md:w-auto">
-          <TabsList className="h-10.5 w-full md:w-auto p-1 bg-muted/60 rounded-xl border border-border/40">
-            <TabsTrigger value="all" className="cursor-pointer text-xs sm:text-sm gap-1.5 px-4 rounded-lg">
+          <TabsList className="h-10.5 w-full md:w-auto p-1 bg-muted/60 rounded-xl border border-border/40 flex overflow-x-auto scrollbar-none [scrollbar-width:none]">
+            <TabsTrigger value="all" className="cursor-pointer text-xs sm:text-sm gap-1.5 px-3 sm:px-4 rounded-lg shrink-0">
               Semua
               <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-background/50 font-semibold text-muted-foreground">{counts.all}</span>
             </TabsTrigger>
-            <TabsTrigger value="open" className="cursor-pointer text-xs sm:text-sm gap-1.5 px-4 rounded-lg">
+            <TabsTrigger value="open" className="cursor-pointer text-xs sm:text-sm gap-1.5 px-3 sm:px-4 rounded-lg shrink-0">
               Terbuka
               <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-info/10 font-semibold text-info">{counts.open}</span>
             </TabsTrigger>
-            <TabsTrigger value="pending" className="cursor-pointer text-xs sm:text-sm gap-1.5 px-4 rounded-lg">
+            <TabsTrigger value="pending" className="cursor-pointer text-xs sm:text-sm gap-1.5 px-3 sm:px-4 rounded-lg shrink-0">
               Tertunda
               <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-warning/10 font-semibold text-warning">{counts.pending}</span>
             </TabsTrigger>
-            <TabsTrigger value="closed" className="cursor-pointer text-xs sm:text-sm gap-1.5 px-4 rounded-lg">
+            <TabsTrigger value="closed" className="cursor-pointer text-xs sm:text-sm gap-1.5 px-3 sm:px-4 rounded-lg shrink-0">
               Selesai
               <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-success/10 font-semibold text-success">{counts.closed}</span>
             </TabsTrigger>
