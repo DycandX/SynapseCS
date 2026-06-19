@@ -6,25 +6,25 @@
 [![OpenRouter](https://img.shields.io/badge/OpenRouter-Gemini_AI-6d28d9?style=flat-square)](https://openrouter.ai/)
 [![Resend](https://img.shields.io/badge/Resend-Email_Service-000000?style=flat-square)](https://resend.com/)
 
-**SynapseCS** adalah platform manajemen layanan pelanggan (*customer support*) modern yang mengintegrasikan kecerdasan buatan (AI) secara riil untuk membantu produktivitas agen CS. Platform ini dirancang dengan performa tinggi, UI/UX premium yang responsif, arsitektur micro-frontend (reverse proxy) yang aman, serta sistem pencatatan aktivitas (*audit trail*) standar industri.
+**SynapseCS** is a modern customer support management platform that integrates real-time AI to empower support agent productivity. Built with high performance, a premium responsive UI/UX, a secure micro-frontend (reverse proxy) architecture, and industry-standard audit logs.
 
 ---
 
-## 🌟 Fitur Utama
+## 🌟 Key Features
 
-1.  **Dashboard Analytics & Statistik**: Visualisasi metrik penting secara riil seperti Customer Satisfaction Score (CSAT), jumlah tiket terbuka/tertunda/selesai, serta grafik distribusi sentimen obrolan.
-2.  **Inbox & Chat Room Realtime**:
-    *   **Smooth Native Scrolling**: Navigasi utas chat yang dioptimalkan untuk perangkat mobile.
-    *   **Responsive Collapsible Profile**: Panel profil pelanggan yang dinamis (menjadi panel geser/laci *Sheet* pada layar mobile/tablet).
-    *   **Klaim Tiket Interaktif**: Tombol untuk merebut atau menugaskan tiket *Unassigned* ke agen aktif.
-    *   **Interactive Status Dropdown**: Ubah status tiket langsung dari inbox (Terbuka, Tertunda, Selesai) dengan pembaruan *realtime* di seluruh dashboard agen lain.
+1.  **Dashboard Analytics & Statistics**: Real-time visualization of key metrics such as Customer Satisfaction Score (CSAT), ticket statuses (open, pending, closed), and chat sentiment distribution.
+2.  **Real-Time Inbox & Chat Room**:
+    *   **Smooth Native Scrolling**: Thread navigation optimized for mobile devices.
+    *   **Responsive Collapsible Profile**: Customer profiles adapt to a sliding drawer (Sheet) on mobile and tablet viewports.
+    *   **Interactive Ticket Claim**: Claim or assign *Unassigned* tickets to the active agent with a single click.
+    *   **Interactive Status Dropdown**: Change ticket status (Open, Pending, Resolved) from the chat room, syncing instantly across other agents' dashboards.
 3.  **AI Integration (Gemini 2.0 via OpenRouter)**:
-    *   **Analisis Sentimen Otomatis**: Mendeteksi emosi pelanggan (Puas, Netral, Marah) di setiap pesan baru.
-    *   **Sistem RAG SOP (AI Draft)**: AI merancang draf balasan otomatis secara cerdas berdasarkan dokumen SOP terdekat yang dicocokkan menggunakan Gemini Vector Embeddings (`text-embedding-004`) di PostgreSQL `pgvector`.
-    *   **Ringkasan AI 3 Poin**: Merangkum riwayat percakapan panjang dengan cepat ke dalam ringkasan eksekutif.
-4.  **Eskalasi Darurat (Resend Notification)**: Deteksi otomatis sentimen "MARAH" pada pesan masuk pelanggan langsung memicu peringatan darurat ke kotak masuk admin via Resend Email Service.
-5.  **Log Aktivitas & Audit (System Logs)**: Pencatatan jejak audit (audit logs) yang terstruktur saat agen mengklaim tiket, membalas pesan, memperbarui SOP, atau terjadi eskalasi AI.
-6.  **Micro-Frontend Ready (Reverse Proxy)**: Dikonfigurasi agar dapat dijalankan sebagai sub-proyek di bawah path url domain utama (misal: `https://domain-utama.com/synapse-cs`) melalui Next.js `basePath`.
+    *   **Automated Sentiment Analysis**: Automatically detects customer sentiment (Angry, Neutral, Happy) on incoming messages.
+    *   **RAG SOP System (AI Draft)**: AI suggests response drafts based on relevant standard operating procedures (SOPs) matched using Gemini Vector Embeddings (`text-embedding-004`) in PostgreSQL `pgvector`.
+    *   **3-Point AI Summary**: Summarize long conversation histories instantly into brief key points.
+4.  **Emergency Escalation (Resend Alerts)**: Automated detection of "Angry" sentiment triggers email alerts to the admin mailbox via Resend Email Service.
+5.  **Audit Logs & Activity Feed**: Structured tracking of operational actions, logging when agents claim tickets, send replies, update SOPs, or when AI escalations occur.
+6.  **Micro-Frontend Ready (Reverse Proxy)**: Pre-configured to run as a sub-project under a subpath of a main domain (e.g., `https://main-domain.com/synapse-cs`) using Next.js `basePath`.
 
 ---
 
@@ -33,89 +33,89 @@
 *   **Frontend / Core**: Next.js 16 (App Router, React Server Actions), TypeScript.
 *   **Styling**: Vanilla Tailwind CSS, Lucide Icons, Glassmorphism, Radix/Base UI Dialog Primitives.
 *   **Database & Auth**: Supabase (PostgreSQL, Row Level Security, pgvector, Realtime Channels).
-*   **Integrasi Pihak Ketiga**:
+*   **Third-Party APIs**:
     *   **OpenRouter API** (Model: `google/gemini-2.0-flash-exp:free` & Gemini Embeddings).
-    *   **Resend API** (Layanan pengiriman email notifikasi).
+    *   **Resend API** (For email notification routing).
 
 ---
 
-## 📂 Struktur Proyek Utama
+## 📂 Project Structure
 
 ```text
 ├── src/
 │   ├── app/                      # Next.js App Router (Pages, API Routes, Server Actions)
-│   │   ├── (dashboard)/          # Halaman Inbox, Dashboard, Pengaturan, Pelanggan
-│   │   ├── api/                  # API Route Handler (Simulator & Integrasi)
-│   │   ├── actions.ts            # Server Actions Terpusat (Supabase & Cookie Session)
-│   │   └── page.tsx              # Halaman Login
-│   ├── components/               # Komponen UI Reusable
-│   │   ├── layout/               # Sidebar dan Topbar Layout
-│   │   └── ui/                   # Komponen Primitif (Button, Dropdown, Dialog, dll.)
-│   ├── lib/                      # Utilitas Pembantu & Pipeline AI (OpenRouter, Resend)
-│   └── utils/supabase/           # Inisialisasi Supabase Server & Client
-├── supabase/                     # Skema & Migrasi Database
-│   ├── setup.sql                 # Skema tabel, indeks performa, RLS, & fungsi PostgreSQL
-│   └── seed.sql                  # Data simulasi awal (percakapan & pesan)
-└── next.config.ts                # Konfigurasi Next.js (basePath & subpath routing)
+│   │   ├── (dashboard)/          # Dashboard, Inbox, Settings, Customers
+│   │   ├── api/                  # API Route Handlers (Simulator & Integrations)
+│   │   ├── actions.ts            # Centralized Server Actions (Supabase & Cookie Session Management)
+│   │   └── page.tsx              # Login Page
+│   ├── components/               # Reusable UI Components
+│   │   ├── layout/               # Sidebar and Topbar Layout Components
+│   │   └── ui/                   # Primitive UI Components (Buttons, Dropdowns, Sheets, etc.)
+│   ├── lib/                      # Helper Utilities & AI Pipeline (OpenRouter, Resend)
+│   └── utils/supabase/           # Supabase Server & Client Initializers
+├── supabase/                     # Database Schemas & Migrations
+│   ├── setup.sql                 # Table definitions, performance indexes, RLS, & triggers
+│   └── seed.sql                  # Initial mock conversations and messages
+└── next.config.ts                # Next.js configuration (basePath & subpath routing)
 ```
 
 ---
 
-## 🚀 Memulai Penginstalan
+## 🚀 Getting Started
 
-### 1. Prasyarat
-Pastikan Anda memiliki hal-hal berikut terinstal di sistem Anda:
-*   [Node.js](https://nodejs.org/) (versi 18+ direkomendasikan)
-*   Akun [Supabase](https://supabase.com)
-*   API Key [OpenRouter](https://openrouter.ai)
-*   API Key [Resend](https://resend.com)
+### 1. Prerequisites
+Ensure you have the following installed on your machine:
+*   [Node.js](https://nodejs.org/) (v18+ recommended)
+*   A [Supabase](https://supabase.com) account
+*   An [OpenRouter](https://openrouter.ai) API Key
+*   A [Resend](https://resend.com) API Key
 
-### 2. Klon Repositori & Pasang Dependensi
+### 2. Clone the Repository & Install Dependencies
 ```bash
 git clone https://github.com/DycandX/SynapseCS.git
 cd SynapseCS
 npm install
 ```
 
-### 3. Konfigurasi Variabel Lingkungan
-Salin berkas template `.env.example` menjadi `.env.local` di direktori utama proyek:
+### 3. Configure Environment Variables
+Copy the `.env.example` file template to `.env.local` in the root of the project:
 ```bash
 cp .env.example .env.local
 ```
-Buka `.env.local` dan lengkapi kredensial Supabase, API Key OpenRouter, API Key Resend, dan email notifikasi admin Anda.
+Open `.env.local` and fill in your Supabase credentials, OpenRouter API Key, Resend API Key, and admin email.
 
-### 4. Setup Skema Database Supabase
-1.  Buka **Supabase Dashboard** proyek Anda.
-2.  Masuk ke menu **SQL Editor** -> **New Query**.
-3.  Salin seluruh isi berkas [supabase/setup.sql](file:///E:/_PROJECT/AI%20Customer%20Support%20(synapse-ai)/supabase/setup.sql) dan jalankan (**Run**). Ini akan membuat tabel-tabel (`profiles`, `customers`, `conversations`, `messages`, `activity_logs`, `knowledge_embeddings`), memasang ekstensi `vector`, menyiapkan kebijakan RLS, dan membuat pemicu pendaftaran profil.
-4.  (*Opsional*) Salin dan jalankan isi berkas [supabase/seed.sql](file:///E:/_PROJECT/AI%20Customer%20Support%20(synapse-ai)/supabase/seed.sql) untuk mengisi data percakapan simulasi awal ke inbox.
+### 4. Setup Supabase Database Schema
+1.  Go to your **Supabase Dashboard**.
+2.  Navigate to **SQL Editor** -> **New Query**.
+3.  Copy and run the contents of [supabase/setup.sql](file:///E:/_PROJECT/AI%20Customer%20Support%20(synapse-ai)/supabase/setup.sql). This will create all required tables (`profiles`, `customers`, `conversations`, `messages`, `activity_logs`, `knowledge_embeddings`), enable the `vector` extension, configure Row-Level Security (RLS), and set up profile creation triggers.
+4.  (*Optional*) Copy and run the contents of [supabase/seed.sql](file:///E:/_PROJECT/AI%20Customer%20Support%20(synapse-ai)/supabase/seed.sql) to populate initial mock conversations.
 
-### 5. Jalankan Server Pengembangan
+### 5. Run the Local Development Server
 ```bash
 npm run dev
 ```
-Aplikasi sekarang dapat diakses secara lokal di `http://localhost:3000/synapse-cs` (jika menggunakan konfigurasi `basePath`).
+The application will be accessible at `http://localhost:3000/synapse-cs` (if using the configured `basePath`).
 
 ---
 
-## ⚙️ Konfigurasi Reverse Proxy (Micro-Frontend)
+## ⚙️ Reverse Proxy Configuration (Micro-Frontend)
 
-Untuk men-deploy aplikasi ini di belakang reverse proxy domain utama (misal: `https://zulvikar.is-a.dev/synapse-cs`):
+To host this application under a subpath of your main domain (e.g., `https://zulvikar.is-a.dev/synapse-cs`):
 
-1.  **Next.js Config**: `basePath` diatur ke `"/synapse-cs"` di `next.config.ts`.
-2.  **Redirect URLs Supabase**: Daftarkan URL berikut di pengaturan **Supabase Authentication -> URL Configuration -> Redirect URLs**:
+1.  **Next.js Config**: `basePath` is defined as `"/synapse-cs"` inside `next.config.ts`.
+2.  **Supabase Redirect URLs**: Add the wildcard redirect URL in your **Supabase Authentication -> URL Configuration -> Redirect URLs**:
     *   `https://zulvikar.is-a.dev/synapse-cs/**`
-3.  **Site URL Supabase**: Atur Site URL ke `https://zulvikar.is-a.dev/synapse-cs`.
-4.  **NEXT_PUBLIC_APP_URL**: Setel nilai ini di environment Vercel Anda ke `https://zulvikar.is-a.dev/synapse-cs`.
+3.  **Supabase Site URL**: Set the main Site URL to `https://zulvikar.is-a.dev/synapse-cs`.
+4.  **NEXT_PUBLIC_APP_URL**: Set this environment variable in your Vercel project configuration to `https://zulvikar.is-a.dev/synapse-cs`.
 
 ---
 
-## 🔒 Kebijakan Keamanan (Security)
+## 🔒 Security & Row-Level Security (RLS)
 
-Aplikasi ini menggunakan `@supabase/ssr` untuk mengelola otentikasi berbasis cookie per-permintaan (*per-request*). Hal ini mencegah kebocoran sesi memori pengguna (*cross-session memory leaks*) pada Server Actions dan Route Handlers. Seluruh akses baca/tulis ke tabel database dikunci menggunakan **PostgreSQL Row Level Security (RLS)** dan hanya dapat diakses oleh akun agen/admin terotentikasi.
+This application uses `@supabase/ssr` to manage cookies securely on a per-request basis. This architectural pattern eliminates cross-session memory leaks in server-side components (Server Actions and Route Handlers). All read/write database queries are secured with **PostgreSQL Row-Level Security (RLS)**, ensuring only authenticated agents or administrators have access to sensitive support data.
 
 ---
 
-## 📄 Lisensi
+## 📄 License
 
-Proyek ini dilisensikan di bawah Lisensi MIT. Lihat berkas `LICENSE` untuk rincian lebih lanjut.
+This project is licensed under the MIT License. See the `LICENSE` file for details.
