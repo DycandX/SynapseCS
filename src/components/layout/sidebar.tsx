@@ -23,7 +23,9 @@ import {
   LayoutDashboard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { conversations } from "@/lib/dummy-data";
+import { conversations as dummyConversations } from "@/lib/dummy-data";
+import { supabase } from "@/lib/supabase";
+import { useState, useEffect } from "react";
 
 interface SidebarProps {
   collapsed: boolean;
@@ -32,18 +34,12 @@ interface SidebarProps {
   onMobileClose: () => void;
 }
 
-const navItems = [
-  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  {
-    label: "Inbox",
-    href: "/inbox",
-    icon: Inbox,
-    badge: conversations.filter((c) => c.unread).length,
-  },
-  { label: "Pelanggan", href: "/customers", icon: Users },
-  { label: "Basis Pengetahuan", href: "/knowledge", icon: BookOpen },
-  { label: "Pengaturan", href: "/settings", icon: Settings },
-];
+interface NavItemType {
+  label: string;
+  href: string;
+  icon: any;
+  badge?: number;
+}
 
 function NavItem({
   item,
@@ -51,7 +47,7 @@ function NavItem({
   isActive,
   onClick,
 }: {
-  item: typeof navItems[number];
+  item: NavItemType;
   collapsed: boolean;
   isActive: boolean;
   onClick?: () => void;
@@ -70,41 +66,41 @@ function NavItem({
     >
       <div className="relative">
         <item.icon className={cn("h-5 w-5 shrink-0", isActive && "text-primary")} />
-        {collapsed && item.badge && (
+        {collapsed && item.badge ? (
           <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-destructive ring-2 ring-sidebar" />
-        )}
+        ) : null}
       </div>
       {!collapsed && (
         <>
           <span className="flex-1 truncate">{item.label}</span>
-          {item.badge && (
+          {item.badge ? (
             <Badge
               variant="destructive"
-              className="h-5 min-w-5 px-1.5 text-xs flex items-center justify-center"
+              className="h-5 min-w-5 px-1.5 text-xs flex items-center justify-center font-semibold"
             >
               {item.badge}
             </Badge>
-          )}
+          ) : null}
         </>
       )}
     </Link>
   );
 
-    if (collapsed) {
-      return (
-        <Tooltip key={item.href}>
-          <TooltipTrigger className="w-full flex justify-center">
-            {content}
-          </TooltipTrigger>
-          <TooltipContent side="right" sideOffset={12}>
-            <p>{item.label}</p>
-            {item.badge ? (
-              <span className="text-xs text-muted-foreground"> ({item.badge})</span>
-            ) : null}
-          </TooltipContent>
-        </Tooltip>
-      );
-    }
+  if (collapsed) {
+    return (
+      <Tooltip key={item.href}>
+        <TooltipTrigger className="w-full flex justify-center">
+          {content}
+        </TooltipTrigger>
+        <TooltipContent side="right" sideOffset={12}>
+          <p>{item.label}</p>
+          {item.badge ? (
+            <span className="text-xs text-muted-foreground"> ({item.badge})</span>
+          ) : null}
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
 
   return <div key={item.href}>{content}</div>;
 }
@@ -119,7 +115,62 @@ function SidebarContent({
   onItemClick?: () => void;
 }) {
   const pathname = usePathname();
-  const { user, logout } = useAuth();
+  const { user, logout, isUsingSupabase } = useAuth();
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    if (!isUsingSupabase) {
+      setUnreadCount(dummyConversations.filter((c) => c.unread).length);
+      return;
+    }
+
+    const fetchUnreadCount = async () => {
+      try {
+        // Count conversations in 'open' status
+        const { count, error } = await supabase
+          .from("conversations")
+          .select("id", { count: "exact", head: true })
+          .eq("status", "open");
+
+        if (!error && count !== null) {
+          setUnreadCount(count);
+        }
+      } catch (err) {
+        console.error("Error fetching unread count:", err);
+      }
+    };
+
+    fetchUnreadCount();
+
+    // Subscribe to realtime database updates
+    const channel = supabase
+      .channel("sidebar-unread-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "conversations" },
+        () => {
+          fetchUnreadCount();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [isUsingSupabase]);
+
+  const navItems: NavItemType[] = [
+    { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+    {
+      label: "Inbox",
+      href: "/inbox",
+      icon: Inbox,
+      badge: unreadCount,
+    },
+    { label: "Pelanggan", href: "/customers", icon: Users },
+    { label: "Basis Pengetahuan", href: "/knowledge", icon: BookOpen },
+    { label: "Pengaturan", href: "/settings", icon: Settings },
+  ];
 
   return (
     <div className="flex flex-col h-full">
