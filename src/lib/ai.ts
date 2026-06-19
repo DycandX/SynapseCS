@@ -20,7 +20,7 @@ export async function getEmbedding(text: string): Promise<number[]> {
   }
   
   try {
-    const model = genAI.getGenerativeModel({ model: "text-embedding-004" });
+    const model = genAI.getGenerativeModel({ model: "gemini-embedding-2" });
     const result = await model.embedContent(text);
     return result.embedding.values;
   } catch (error) {
@@ -85,7 +85,7 @@ export async function generateAIDraft(conversationId: string, customerMessage: s
       : `Pelanggan: ${customerMessage}`;
 
     // 3. Panggil Gemini 1.5 Flash
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
     const prompt = `
 Anda adalah sistem AI Customer Support cerdas bernama "SynapseCS" untuk membantu Agen CS manusia. 
 Tugas Anda adalah merumuskan DRAF BALASAN yang sopan, solutif, empati, dan sesuai dengan Standar Operasional Prosedur (SOP) perusahaan.
@@ -127,7 +127,7 @@ export async function analyzeSentiment(messageContent: string): Promise<"marah" 
 
   try {
     const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash",
+      model: "gemini-2.0-flash",
       generationConfig: { responseMimeType: "application/json" },
     });
 
@@ -191,7 +191,7 @@ export async function generateConversationSummary(conversationId: string): Promi
       .join("\n");
 
     const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash",
+      model: "gemini-2.0-flash",
       generationConfig: { responseMimeType: "application/json" },
     });
 
