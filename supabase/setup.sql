@@ -27,9 +27,7 @@ create policy "Allow update access for users to their own profile" on public.pro
 
 create policy "Allow admin to manage all profiles" on public.profiles
   for all to authenticated using (
-    exists (
-      select 1 from public.profiles where id = auth.uid() and role = 'admin'
-    )
+    (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin'
   );
 
 -- 3. Create Customers Table
@@ -102,13 +100,9 @@ create policy "Allow read access for authenticated users" on public.knowledge_em
 
 create policy "Allow admin to manage knowledge embeddings" on public.knowledge_embeddings
   for all to authenticated using (
-    exists (
-      select 1 from public.profiles where id = auth.uid() and role = 'admin'
-    )
+    (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin'
   ) with check (
-    exists (
-      select 1 from public.profiles where id = auth.uid() and role = 'admin'
-    )
+    (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin'
   );
 
 -- 7. Cosine Similarity Vector Search Function (768 Dimensions)
