@@ -1,6 +1,19 @@
-import { supabase } from "./supabase";
+import { createClient as createServerClient } from "@/utils/supabase/server";
+import { cookies } from "next/headers";
+import { supabase as clientSupabase } from "./supabase";
 
 const openrouterKey = process.env.OPENROUTER_API_KEY || "your-openrouter-key-placeholder";
+
+// Helper to obtain the correct Supabase client in the server context
+async function getSupabaseClient() {
+  try {
+    const cookieStore = await cookies();
+    return createServerClient(cookieStore);
+  } catch (e) {
+    // Falls back to static client-side anon instance if cookies() is called outside request context (e.g. build time)
+    return clientSupabase;
+  }
+}
 
 if (!process.env.OPENROUTER_API_KEY) {
   if (typeof window === "undefined") {
@@ -42,6 +55,7 @@ export async function getEmbedding(text: string): Promise<number[]> {
  */
 export async function searchSOPs(query: string, matchCount = 2, threshold = 0.2) {
   try {
+    const supabase = await getSupabaseClient();
     // Jika GEMINI_API_KEY tersedia, kita bisa mencoba pencarian berbasis cosine similarity (pgvector)
     const geminiKey = process.env.GEMINI_API_KEY;
     if (geminiKey && !geminiKey.includes("Dummy") && !geminiKey.includes("placeholder")) {
@@ -94,6 +108,7 @@ export async function generateAIDraft(conversationId: string, customerMessage: s
   }
 
   try {
+    const supabase = await getSupabaseClient();
     // 1. Cari SOP yang relevan
     const sops = await searchSOPs(customerMessage, 2, 0.2);
     const sopContext = sops.length > 0
@@ -251,6 +266,7 @@ export async function generateConversationSummary(conversationId: string): Promi
   }
 
   try {
+    const supabase = await getSupabaseClient();
     // Ambil riwayat percakapan lengkap dari database
     const { data: messages } = await supabase
       .from("messages")
