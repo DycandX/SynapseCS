@@ -14,12 +14,19 @@ import {
   getAISummaryAction,
   sendMessageAction,
   claimConversationAction,
+  updateConversationStatusAction,
 } from "@/app/actions";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Sheet,
   SheetContent,
@@ -375,6 +382,24 @@ export default function ConversationDetailPage({ params }: { params: Promise<{ i
     setClaiming(false);
   };
 
+  // Handle updating ticket status
+  const handleUpdateStatus = async (newStatus: "open" | "pending" | "closed") => {
+    if (!id) return;
+    const prevStatus = conversation?.status;
+
+    // Optimistic update
+    setConversation((prev: any) => prev ? { ...prev, status: newStatus } : null);
+
+    if (isUsingSupabase) {
+      const success = await updateConversationStatusAction(id, newStatus);
+      if (!success) {
+        // Rollback on failure
+        setConversation((prev: any) => prev ? { ...prev, status: prevStatus } : null);
+        alert("Gagal memperbarui status tiket.");
+      }
+    }
+  };
+
   if (loading) {
     return (
       <div className="space-y-4 p-6 animate-in">
@@ -547,16 +572,40 @@ export default function ConversationDetailPage({ params }: { params: Promise<{ i
             </div>
             <div className="flex justify-between items-center">
               <span className="text-muted-foreground">Status</span>
-              <Badge
-                variant="outline"
-                className={cn(
-                  "inline-flex items-center gap-0.5 text-[9px] font-semibold px-1.5 py-0.5 rounded-md border",
-                  statusCfg.bg, statusCfg.color, statusCfg.border
-                )}
-              >
-                <StatusIcon className="h-3 w-3" />
-                {statusCfg.label}
-              </Badge>
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  className={cn(
+                    "h-6 inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md border cursor-pointer hover:opacity-90 active:scale-95 transition-all duration-200",
+                    statusCfg.bg, statusCfg.color, statusCfg.border
+                  )}
+                >
+                  <StatusIcon className="h-3 w-3" />
+                  {statusCfg.label}
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-32">
+                  <DropdownMenuItem
+                    onClick={() => handleUpdateStatus("open")}
+                    className="flex items-center gap-2 cursor-pointer text-xs focus:bg-info/10 focus:text-info"
+                  >
+                    <span className="h-2 w-2 rounded-full bg-info" />
+                    Terbuka
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => handleUpdateStatus("pending")}
+                    className="flex items-center gap-2 cursor-pointer text-xs focus:bg-warning/10 focus:text-warning"
+                  >
+                    <span className="h-2 w-2 rounded-full bg-warning" />
+                    Tertunda
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => handleUpdateStatus("closed")}
+                    className="flex items-center gap-2 cursor-pointer text-xs focus:bg-success/10 focus:text-success"
+                  >
+                    <span className="h-2 w-2 rounded-full bg-success" />
+                    Selesai
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-muted-foreground">Sentimen</span>
@@ -646,16 +695,40 @@ export default function ConversationDetailPage({ params }: { params: Promise<{ i
                 <SentimentIcon className="h-2.5 w-2.5" />
                 <span className="hidden xs:inline">{sentimentCfg.label}</span>
               </Badge>
-              <Badge
-                variant="outline"
-                className={cn(
-                  "inline-flex items-center gap-0.5 text-[9px] font-semibold px-1.5 py-0.5 rounded-md border",
-                  statusCfg.bg, statusCfg.color, statusCfg.border
-                )}
-              >
-                <StatusIcon className="h-2.5 w-2.5" />
-                <span>{statusCfg.label}</span>
-              </Badge>
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  className={cn(
+                    "h-5 inline-flex items-center gap-0.5 text-[9px] font-semibold px-1.5 py-0 rounded-md border cursor-pointer hover:opacity-90 active:scale-95 transition-all duration-200",
+                    statusCfg.bg, statusCfg.color, statusCfg.border
+                  )}
+                >
+                  <StatusIcon className="h-2.5 w-2.5" />
+                  <span>{statusCfg.label}</span>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-32">
+                  <DropdownMenuItem
+                    onClick={() => handleUpdateStatus("open")}
+                    className="flex items-center gap-2 cursor-pointer text-xs focus:bg-info/10 focus:text-info"
+                  >
+                    <span className="h-2.5 w-2.5 rounded-full bg-info" />
+                    Terbuka
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => handleUpdateStatus("pending")}
+                    className="flex items-center gap-2 cursor-pointer text-xs focus:bg-warning/10 focus:text-warning"
+                  >
+                    <span className="h-2.5 w-2.5 rounded-full bg-warning" />
+                    Tertunda
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => handleUpdateStatus("closed")}
+                    className="flex items-center gap-2 cursor-pointer text-xs focus:bg-success/10 focus:text-success"
+                  >
+                    <span className="h-2.5 w-2.5 rounded-full bg-success" />
+                    Selesai
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
 

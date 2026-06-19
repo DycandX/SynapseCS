@@ -135,6 +135,75 @@ export async function claimConversationAction(
 }
 
 /**
+ * Server Action: Memperbarui status tiket percakapan (open, pending, closed).
+ */
+export async function updateConversationStatusAction(
+  conversationId: string,
+  status: "open" | "pending" | "closed"
+): Promise<boolean> {
+  try {
+    const cookieStore = await cookies();
+    const supabase = createClient(cookieStore);
+
+    // 1. Ambil status lama terlebih dahulu untuk pencatatan log
+    const { data: oldConvo } = await supabase
+      .from("conversations")
+      .select("status")
+      .eq("id", conversationId)
+      .single();
+
+    const oldStatus = oldConvo?.status || "unknown";
+
+    // 2. Perbarui status di database
+    const { error } = await supabase
+      .from("conversations")
+      .update({
+        status,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", conversationId);
+
+    if (error) throw error;
+
+    // 3. Ambil nama agen aktif yang mengubah status
+    const { data: { session } } = await supabase.auth.getSession();
+    const agentId = session?.user?.id;
+    let agentName = "Sistem";
+
+    if (agentId) {
+      const { data: agentProfile } = await supabase
+        .from("profiles")
+        .select("name")
+        .eq("id", agentId)
+        .single();
+      if (agentProfile?.name) {
+        agentName = agentProfile.name;
+      }
+    }
+
+    // Terjemahan label status
+    const statusLabels: Record<string, string> = {
+      open: "Terbuka",
+      pending: "Tertunda",
+      closed: "Selesai",
+      unknown: "Tidak Diketahui",
+    };
+
+    // 4. Catat aktivitas perubahan status ke log audit
+    await logActivityAction(
+      "UPDATE_STATUS",
+      `${agentName} mengubah status tiket #${conversationId} dari "${statusLabels[oldStatus]}" menjadi "${statusLabels[status]}"`,
+      { conversationId, oldStatus, newStatus: status, agentId }
+    );
+
+    return true;
+  } catch (error) {
+    console.error("Action error updating conversation status:", error);
+    return false;
+  }
+}
+
+/**
  * Server Action: Menghasilkan draf balasan AI dengan konteks RAG SOP.
  */
 export async function getAIDraftAction(
