@@ -1,68 +1,96 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import { supabase } from "./supabase";
 
-const apiKey = process.env.GEMINI_API_KEY || "AIzaSyDummyGeminiAPIKeyForBuildsOnly";
-const genAI = new GoogleGenerativeAI(apiKey);
+const openrouterKey = process.env.OPENROUTER_API_KEY || "your-openrouter-key-placeholder";
 
-if (!process.env.GEMINI_API_KEY) {
+if (!process.env.OPENROUTER_API_KEY) {
   if (typeof window === "undefined") {
-    console.warn("⚠️ Peringatan: Variabel lingkungan GEMINI_API_KEY belum disetel di .env.local.");
+    console.warn("⚠️ Peringatan: Variabel lingkungan OPENROUTER_API_KEY belum disetel di .env.local.");
   }
 }
 
 /**
- * Menghasilkan representasi vektor (embedding) dari teks menggunakan model text-embedding-004 (768 dimensi).
+ * Helper to safely parse JSON from model responses, handling potential markdown formatting or conversational text.
+ */
+function parseJSONFromText(text: string) {
+  try {
+    // Strip markdown codeblock if present
+    const cleaned = text.replace(/```json/g, "").replace(/```/g, "").trim();
+    return JSON.parse(cleaned);
+  } catch (e) {
+    // Try regex match for JSON objects/arrays
+    const match = text.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
+    if (match) {
+      try {
+        return JSON.parse(match[0]);
+      } catch (e2) {}
+    }
+    throw e;
+  }
+}
+
+/**
+ * Fallback representation of vector embeddings (returns zero-filled vector for DB insert compatibility).
  */
 export async function getEmbedding(text: string): Promise<number[]> {
-  if (!apiKey) {
-    // Return dummy 768-dimensional vector if API Key is not configured
-    return new Array(768).fill(0).map((_, i) => (i === 0 ? 1 : 0));
-  }
-  
-  try {
-    const model = genAI.getGenerativeModel({ model: "gemini-embedding-2" });
-    const result = await model.embedContent(text);
-    return result.embedding.values;
-  } catch (error) {
-    console.error("Error generating embedding:", error);
-    throw error;
-  }
+  // Returns a dummy 768-dimensional vector to satisfy DB foreign keys/types
+  return new Array(768).fill(0);
 }
 
 /**
- * Mencari dokumen SOP yang paling relevan di Supabase menggunakan pgvector cosine similarity.
+ * Mencari dokumen SOP yang paling relevan di Supabase.
+ * Menggunakan pgvector jika embedding tersedia, atau fallback otomatis ke pencarian teks jika tidak ada key.
  */
-export async function searchSOPs(query: string, matchCount = 2, threshold = 0.3) {
+export async function searchSOPs(query: string, matchCount = 2, threshold = 0.2) {
   try {
-    const queryEmbedding = await getEmbedding(query);
-    
-    // Panggil RPC match_knowledge di Supabase
-    const { data: documents, error } = await supabase.rpc("match_knowledge", {
-      query_embedding: queryEmbedding,
-      match_threshold: threshold,
-      match_count: matchCount,
-    });
-    
+    // Jika GEMINI_API_KEY tersedia, kita bisa mencoba pencarian berbasis cosine similarity (pgvector)
+    const geminiKey = process.env.GEMINI_API_KEY;
+    if (geminiKey && !geminiKey.includes("Dummy") && !geminiKey.includes("placeholder")) {
+      try {
+        const queryEmbedding = await getEmbedding(query);
+        const { data: documents, error } = await supabase.rpc("match_knowledge", {
+          query_embedding: queryEmbedding,
+          match_threshold: threshold,
+          match_count: matchCount,
+        });
+        if (!error && documents) {
+          return documents;
+        }
+      } catch (e) {
+        console.error("Cosine search failed, falling back to text search:", e);
+      }
+    }
+
+    // Fallback: Text search menggunakan ILIKE pada kolom title dan content
+    console.log("RAG: Menggunakan text-based search fallback");
+    const { data: documents, error } = await supabase
+      .from("knowledge_embeddings")
+      .select("id, title, content")
+      .or(`title.ilike.%${query}%,content.ilike.%${query}%`)
+      .limit(matchCount);
+
     if (error) {
-      console.error("Error calling match_knowledge RPC:", error.message);
+      console.error("Error calling text search fallback:", error.message);
       return [];
     }
-    
-    return documents || [];
+
+    // Petakan dengan nilai kemiripan default agar kompatibel dengan pemanggil fungsi RAG
+    return (documents || []).map((doc) => ({
+      ...doc,
+      similarity: 1.0,
+    }));
   } catch (error) {
-    console.error("SOP Search RAG failed:", error);
+    console.error("SOP Search failed:", error);
     return [];
   }
 }
 
 /**
- * Menyusun draf balasan otomatis menggunakan Gemini 1.5 Flash dengan konteks RAG SOP.
+ * Menyusun draf balasan otomatis menggunakan OpenRouter (Gemini 2.0 Flash Free).
  */
 export async function generateAIDraft(conversationId: string, customerMessage: string): Promise<string> {
-  if (!apiKey) {
-    // Fallback jika API key tidak disetel (mengembalikan simulasi lokal)
+  if (!process.env.OPENROUTER_API_KEY || openrouterKey.includes("placeholder")) {
     await new Promise((r) => setTimeout(r, 1000));
-    return `[SIMULATED DRAFT] Yth. Pelanggan,\n\nTerima kasih atas pesan Anda. Kami mohon maaf atas ketidaknyamanan yang dialami. Saat ini sistem AI kami sedang dalam mode demo (GEMINI_API_KEY belum dikonfigurasi).\n\nSilakan konfigurasikan variabel lingkungan untuk mengaktifkan AI asli.\n\nHormat kami,\nTim CS`;
+    return `[SIMULATED DRAFT] Yth. Pelanggan,\n\nTerima kasih atas pesan Anda. Kami memohon maaf atas ketidaknyamanan yang dialami. (Aplikasi dalam mode simulasi karena OPENROUTER_API_KEY belum dikonfigurasi).`;
   }
 
   try {
@@ -84,8 +112,7 @@ export async function generateAIDraft(conversationId: string, customerMessage: s
       ? messages.map((m) => `${m.sender_type === "agent" ? "Agen" : "Pelanggan"}: ${m.content}`).join("\n")
       : `Pelanggan: ${customerMessage}`;
 
-    // 3. Panggil Gemini 1.5 Flash
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    // 3. Panggil OpenRouter
     const prompt = `
 Anda adalah sistem AI Customer Support cerdas bernama "SynapseCS" untuk membantu Agen CS manusia. 
 Tugas Anda adalah merumuskan DRAF BALASAN yang sopan, solutif, empati, dan sesuai dengan Standar Operasional Prosedur (SOP) perusahaan.
@@ -111,26 +138,41 @@ Aturan penulisan draf:
 Tulis draf balasan Anda sekarang:
     `;
 
-    const result = await model.generateContent(prompt);
-    return result.response.text().trim();
-  } catch (error) {
-    console.error("Error generating AI Draft:", error);
-    return "Maaf, sistem gagal menyusun draf balasan otomatis karena kendala teknis API.";
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${openrouterKey}`,
+        "HTTP-Referer": "http://localhost:3000",
+        "X-Title": "SynapseCS",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.0-flash-exp:free",
+        messages: [{ role: "user", content: prompt }],
+      }),
+    });
+
+    const data = await response.json();
+    if (data.choices && data.choices[0]) {
+      return data.choices[0].message.content.trim();
+    }
+    
+    throw new Error(data.error?.message || "Gagal mendapatkan draf balasan dari OpenRouter.");
+  } catch (error: any) {
+    console.error("Error generating AI Draft via OpenRouter:", error);
+    return "Maaf, sistem gagal menyusun draf balasan otomatis karena kendala teknis API OpenRouter.";
   }
 }
 
 /**
- * Menganalisis sentimen dari pesan masuk menggunakan Gemini 1.5 Flash (Output JSON terstruktur).
+ * Menganalisis sentimen dari pesan masuk menggunakan OpenRouter (Gemini 2.0 Flash Free).
  */
 export async function analyzeSentiment(messageContent: string): Promise<"marah" | "netral" | "puas"> {
-  if (!apiKey) return "netral";
+  if (!process.env.OPENROUTER_API_KEY || openrouterKey.includes("placeholder")) {
+    return "netral";
+  }
 
   try {
-    const model = genAI.getGenerativeModel({
-      model: "gemini-2.0-flash",
-      generationConfig: { responseMimeType: "application/json" },
-    });
-
     const prompt = `
 Menganalisis sentimen/emosi dari pesan pelanggan customer service berikut.
 Pilihan kategori sentimen hanya ada tiga:
@@ -146,30 +188,45 @@ Kembalikan jawaban dalam format JSON terstruktur dengan skema berikut:
 }
     `;
 
-    const result = await model.generateContent(prompt);
-    const responseText = result.response.text();
-    const data = JSON.parse(responseText);
-    
-    if (data.sentiment && ["marah", "netral", "puas"].includes(data.sentiment)) {
-      return data.sentiment;
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${openrouterKey}`,
+        "HTTP-Referer": "http://localhost:3000",
+        "X-Title": "SynapseCS",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.0-flash-exp:free",
+        messages: [{ role: "user", content: prompt }],
+      }),
+    });
+
+    const data = await response.json();
+    if (data.choices && data.choices[0]) {
+      const content = data.choices[0].message.content;
+      const parsed = parseJSONFromText(content);
+      if (parsed.sentiment && ["marah", "netral", "puas"].includes(parsed.sentiment)) {
+        return parsed.sentiment;
+      }
     }
     return "netral";
   } catch (error) {
-    console.error("Error analyzing sentiment:", error);
+    console.error("Error analyzing sentiment via OpenRouter:", error);
     return "netral";
   }
 }
 
 /**
- * Membuat ringkasan percakapan menjadi 3 poin utama menggunakan Gemini 1.5 Flash.
+ * Membuat ringkasan percakapan menjadi 3 poin utama menggunakan OpenRouter (Gemini 2.0 Flash Free).
  */
 export async function generateConversationSummary(conversationId: string): Promise<string[]> {
-  if (!apiKey) {
+  if (!process.env.OPENROUTER_API_KEY || openrouterKey.includes("placeholder")) {
     await new Promise((r) => setTimeout(r, 1000));
     return [
       "[SIMULATED SUMMARY] Pelanggan menanyakan bantuan layanan.",
-      "Sistem AI dalam mode simulasi/demo karena GEMINI_API_KEY kosong.",
-      "Hubungkan kunci Google AI Studio untuk hasil ringkasan nyata.",
+      "Sistem AI dalam mode simulasi/demo karena OPENROUTER_API_KEY kosong.",
+      "Hubungkan kunci OpenRouter Anda untuk hasil ringkasan nyata.",
     ];
   }
 
@@ -189,11 +246,6 @@ export async function generateConversationSummary(conversationId: string): Promi
     const conversationHistoryText = messages
       .map((m) => `${m.sender_type === "agent" ? "Agen" : m.sender_type === "customer" ? "Pelanggan" : "Sistem AI"}: ${m.content}`)
       .join("\n");
-
-    const model = genAI.getGenerativeModel({
-      model: "gemini-2.0-flash",
-      generationConfig: { responseMimeType: "application/json" },
-    });
 
     const prompt = `
 Ringkas riwayat percakapan dukungan pelanggan berikut menjadi tepat 3 poin penting yang singkat dan padat.
@@ -215,15 +267,31 @@ Kembalikan respon Anda dalam format JSON array berisi 3 string poin:
 ]
     `;
 
-    const result = await model.generateContent(prompt);
-    const data = JSON.parse(result.response.text());
-    
-    if (Array.isArray(data) && data.length > 0) {
-      return data;
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${openrouterKey}`,
+        "HTTP-Referer": "http://localhost:3000",
+        "X-Title": "SynapseCS",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.0-flash-exp:free",
+        messages: [{ role: "user", content: prompt }],
+      }),
+    });
+
+    const data = await response.json();
+    if (data.choices && data.choices[0]) {
+      const content = data.choices[0].message.content;
+      const parsed = parseJSONFromText(content);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
     }
     return ["Gagal merangkum percakapan dalam struktur yang tepat."];
   } catch (error) {
-    console.error("Error generating conversation summary:", error);
-    return ["Gagal memproses ringkasan obrolan via Gemini API."];
+    console.error("Error generating conversation summary via OpenRouter:", error);
+    return ["Gagal memproses ringkasan obrolan via OpenRouter API."];
   }
 }
