@@ -27,7 +27,7 @@ create policy "Allow update access for users to their own profile" on public.pro
 
 create policy "Allow admin to manage all profiles" on public.profiles
   for all to authenticated using (
-    (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin'
+    (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'
   );
 
 -- 3. Create Customers Table
@@ -43,8 +43,18 @@ create table public.customers (
 alter table public.customers enable row level security;
 
 -- Policies for Customers
-create policy "Allow read and write access for authenticated users" on public.customers
-  for all to authenticated using (true) with check (true);
+create policy "Allow select access for authenticated users" on public.customers
+  for select to authenticated using (true);
+
+create policy "Allow insert access for authenticated users" on public.customers
+  for insert to authenticated with check (true);
+
+create policy "Allow admin to update and delete customers" on public.customers
+  for all to authenticated using (
+    (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'
+  ) with check (
+    (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'
+  );
 
 -- 4. Create Conversations Table
 create table public.conversations (
@@ -62,8 +72,29 @@ create table public.conversations (
 alter table public.conversations enable row level security;
 
 -- Policies for Conversations
-create policy "Allow read and write access for authenticated users" on public.conversations
-  for all to authenticated using (true) with check (true);
+create policy "Allow select access for agents" on public.conversations
+  for select to authenticated using (
+    agent_id = auth.uid() or agent_id is null
+  );
+
+create policy "Allow update access for agents" on public.conversations
+  for update to authenticated using (
+    agent_id = auth.uid() or agent_id is null
+  ) with check (
+    agent_id = auth.uid() or agent_id is null
+  );
+
+create policy "Allow insert access for agents" on public.conversations
+  for insert to authenticated with check (
+    agent_id is null
+  );
+
+create policy "Allow admin to manage all conversations" on public.conversations
+  for all to authenticated using (
+    (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'
+  ) with check (
+    (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'
+  );
 
 -- 5. Create Messages Table
 create table public.messages (
@@ -79,8 +110,30 @@ create table public.messages (
 alter table public.messages enable row level security;
 
 -- Policies for Messages
-create policy "Allow read and write access for authenticated users" on public.messages
-  for all to authenticated using (true) with check (true);
+create policy "Allow select access for agents" on public.messages
+  for select to authenticated using (
+    exists (
+      select 1 from public.conversations
+      where conversations.id = conversation_id
+      and (conversations.agent_id = auth.uid() or conversations.agent_id is null)
+    )
+  );
+
+create policy "Allow insert access for agents" on public.messages
+  for insert to authenticated with check (
+    exists (
+      select 1 from public.conversations
+      where conversations.id = conversation_id
+      and (conversations.agent_id = auth.uid() or conversations.agent_id is null)
+    )
+  );
+
+create policy "Allow admin to manage all messages" on public.messages
+  for all to authenticated using (
+    (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'
+  ) with check (
+    (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'
+  );
 
 -- 6. Create Knowledge Embeddings Table (pgvector 768-dim for Gemini text-embedding-004)
 create table public.knowledge_embeddings (
@@ -100,9 +153,9 @@ create policy "Allow read access for authenticated users" on public.knowledge_em
 
 create policy "Allow admin to manage knowledge embeddings" on public.knowledge_embeddings
   for all to authenticated using (
-    (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin'
+    (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'
   ) with check (
-    (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin'
+    (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'
   );
 
 -- 7. Cosine Similarity Vector Search Function (768 Dimensions)
