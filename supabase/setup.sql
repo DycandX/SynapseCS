@@ -130,6 +130,13 @@ as $$
   limit match_count;
 $$;
 
+-- IVFFlat index for cosine similarity search
+create index if not exists idx_knowledge_embeddings_embedding 
+  on public.knowledge_embeddings 
+  using ivfflat (embedding vector_cosine_ops) 
+  with (lists = 100);
+
+
 -- 8. Automatic Profile Creation Trigger on Sign Up
 create or replace function public.handle_new_user()
 returns trigger as $$
