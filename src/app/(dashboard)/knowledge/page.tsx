@@ -70,14 +70,15 @@ export default function KnowledgePage() {
     if (!newTitle.trim() || !newContent.trim()) return;
 
     setIsAdding(true);
-    const success = await addSOPAction(newTitle, newContent);
+    const result = await addSOPAction(newTitle, newContent);
+    const success = typeof result === "boolean" ? result : result.success;
     if (success) {
       setNewTitle("");
       setNewContent("");
       setIsAddOpen(false);
       await loadSOPs(); // Refresh SOP list
     } else {
-      alert("Gagal menyimpan SOP. Pastikan variabel GEMINI_API_KEY telah dikonfigurasi.");
+      alert("Gagal menyimpan SOP. Pastikan variabel OPENROUTER_API_KEY telah dikonfigurasi.");
     }
     setIsAdding(false);
   };

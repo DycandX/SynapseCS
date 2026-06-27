@@ -8,6 +8,13 @@ import {
   getEmbedding,
 } from "@/lib/ai";
 import { sendUrgentAlertEmail } from "@/lib/resend";
+import { ZodError } from "zod";
+import {
+  sendMessageSchema,
+  claimConversationSchema,
+  updateConversationStatusSchema,
+  addSOPSchema,
+} from "@/lib/validation";
 
 /**
  * Server Action: Mencatat log aktivitas audit ke database (Standar Industri).
@@ -96,8 +103,10 @@ export async function getProfilesAction() {
 export async function claimConversationAction(
   conversationId: string,
   agentId: string
-): Promise<boolean> {
+): Promise<any> {
   try {
+    claimConversationSchema.parse({ conversationId, agentId });
+
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
@@ -126,10 +135,13 @@ export async function claimConversationAction(
       { conversationId, agentId }
     );
 
-    return true;
-  } catch (error) {
+    return { success: true };
+  } catch (error: any) {
+    if (error instanceof ZodError) {
+      return { success: false, error: "Validation failed", details: error.issues };
+    }
     console.error("Action error claiming conversation:", error);
-    return false;
+    return { success: false, error: error.message || String(error) };
   }
 }
 
@@ -139,8 +151,10 @@ export async function claimConversationAction(
 export async function updateConversationStatusAction(
   conversationId: string,
   status: "open" | "pending" | "closed"
-): Promise<boolean> {
+): Promise<any> {
   try {
+    updateConversationStatusSchema.parse({ conversationId, status });
+
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
@@ -195,10 +209,13 @@ export async function updateConversationStatusAction(
       { conversationId, oldStatus, newStatus: status, agentId }
     );
 
-    return true;
-  } catch (error) {
+    return { success: true };
+  } catch (error: any) {
+    if (error instanceof ZodError) {
+      return { success: false, error: "Validation failed", details: error.issues };
+    }
     console.error("Action error updating conversation status:", error);
-    return false;
+    return { success: false, error: error.message || String(error) };
   }
 }
 
@@ -246,8 +263,10 @@ export async function sendMessageAction(
   content: string,
   senderType: "customer" | "agent" | "ai_system",
   attachmentUrl?: string
-) {
+): Promise<any> {
   try {
+    sendMessageSchema.parse({ conversationId, content, senderType, attachmentUrl });
+
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
@@ -323,8 +342,11 @@ export async function sendMessageAction(
 
     return { success: true, message };
   } catch (error: any) {
+    if (error instanceof ZodError) {
+      return { success: false, error: "Validation failed", details: error.issues };
+    }
     console.error("Action error sending message:", error);
-    return { success: false, error: error.message };
+    return { success: false, error: error.message || String(error) };
   }
 }
 
@@ -356,8 +378,10 @@ export async function getSOPsAction() {
 export async function addSOPAction(
   title: string,
   content: string
-): Promise<boolean> {
+): Promise<any> {
   try {
+    addSOPSchema.parse({ title, content });
+
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
@@ -380,18 +404,21 @@ export async function addSOPAction(
       { title }
     );
 
-    return true;
-  } catch (error) {
+    return { success: true };
+  } catch (error: any) {
+    if (error instanceof ZodError) {
+      return { success: false, error: "Validation failed", details: error.issues };
+    }
     console.error("Action error adding SOP with vector embedding:", error);
     
     // Catat log aktivitas kegagalan penambahan SOP
     await logActivityAction(
       "SYSTEM_ERROR",
       `Gagal menambahkan dokumen SOP "${title}" akibat kendala teknis.`,
-      { title, error: (error as any).message || String(error) }
+      { title, error: error.message || String(error) }
     );
 
-    return false;
+    return { success: false, error: error.message || String(error) };
   }
 }
 

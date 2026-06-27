@@ -368,7 +368,8 @@ export default function ConversationDetailPage({ params }: { params: Promise<{ i
   const handleClaimTicket = async () => {
     if (!currentUser || !id) return;
     setClaiming(true);
-    const success = await claimConversationAction(id, currentUser.id);
+    const result = await claimConversationAction(id, currentUser.id);
+    const success = typeof result === "boolean" ? result : result.success;
     if (success) {
       setAgent({
         id: currentUser.id,
@@ -391,7 +392,8 @@ export default function ConversationDetailPage({ params }: { params: Promise<{ i
     setConversation((prev: any) => prev ? { ...prev, status: newStatus } : null);
 
     if (isUsingSupabase) {
-      const success = await updateConversationStatusAction(id, newStatus);
+      const result = await updateConversationStatusAction(id, newStatus);
+      const success = typeof result === "boolean" ? result : result.success;
       if (!success) {
         // Rollback on failure
         setConversation((prev: any) => prev ? { ...prev, status: prevStatus } : null);
