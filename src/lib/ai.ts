@@ -42,11 +42,51 @@ function parseJSONFromText(text: string) {
 }
 
 /**
- * Fallback representation of vector embeddings (returns zero-filled vector for DB insert compatibility).
+ * Helper to fetch a real embedding vector from OpenRouter using Google Gemini.
+ */
+async function getGeminiEmbedding(text: string): Promise<number[]> {
+  const response = await fetch("https://openrouter.ai/api/v1/embeddings", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${openrouterKey}`,
+      "HTTP-Referer": "http://localhost:3000",
+      "X-Title": "SynapseCS",
+    },
+    body: JSON.stringify({
+      model: "google/gemini-embedding-exp-03-04",
+      input: text,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`OpenRouter Embeddings API error: ${response.status} ${errorText}`);
+  }
+
+  const data = await response.json();
+  if (!data?.data?.[0]?.embedding) {
+    throw new Error("Invalid response format from OpenRouter embeddings API");
+  }
+
+  return data.data[0].embedding;
+}
+
+/**
+ * Returns the 768-dimensional vector embedding for a given text.
+ * Falls back to returning an empty array if the API call fails or if the key is missing.
  */
 export async function getEmbedding(text: string): Promise<number[]> {
-  // Returns a dummy 768-dimensional vector to satisfy DB foreign keys/types
-  return new Array(768).fill(0);
+  if (!process.env.OPENROUTER_API_KEY || openrouterKey.includes("placeholder")) {
+    return [];
+  }
+
+  try {
+    return await getGeminiEmbedding(text);
+  } catch (error) {
+    console.error("Error generating embedding:", error);
+    return [];
+  }
 }
 
 /**
@@ -56,18 +96,22 @@ export async function getEmbedding(text: string): Promise<number[]> {
 export async function searchSOPs(query: string, matchCount = 2, threshold = 0.2) {
   try {
     const supabase = await getSupabaseClient();
-    // Jika GEMINI_API_KEY tersedia, kita bisa mencoba pencarian berbasis cosine similarity (pgvector)
-    const geminiKey = process.env.GEMINI_API_KEY;
-    if (geminiKey && !geminiKey.includes("Dummy") && !geminiKey.includes("placeholder")) {
+    // Jika OPENROUTER_API_KEY tersedia, kita bisa mencoba pencarian berbasis cosine similarity (pgvector)
+    const hasKey = process.env.OPENROUTER_API_KEY && !openrouterKey.includes("placeholder");
+    if (hasKey) {
       try {
         const queryEmbedding = await getEmbedding(query);
-        const { data: documents, error } = await supabase.rpc("match_knowledge", {
-          query_embedding: queryEmbedding,
-          match_threshold: threshold,
-          match_count: matchCount,
-        });
-        if (!error && documents) {
-          return documents;
+        if (queryEmbedding && queryEmbedding.length === 768) {
+          const { data: documents, error } = await supabase.rpc("match_knowledge", {
+            query_embedding: queryEmbedding,
+            match_threshold: threshold,
+            match_count: matchCount,
+          });
+          if (!error && documents) {
+            return documents;
+          }
+        } else {
+          console.warn("RAG: Embedding invalid or empty, skipping cosine search");
         }
       } catch (e) {
         console.error("Cosine search failed, falling back to text search:", e);
