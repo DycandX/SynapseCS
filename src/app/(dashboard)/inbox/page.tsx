@@ -165,8 +165,9 @@ export default function InboxPage() {
     if (!isUsingSupabase) return;
 
     // Refresh list on any changes in conversation or message insertions
+    const uniqueChannelName = `inbox-realtime-${Math.random().toString(36).substring(2, 9)}`;
     const channel = supabase
-      .channel("inbox-realtime")
+      .channel(uniqueChannelName)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "conversations" },
@@ -354,10 +355,10 @@ export default function InboxPage() {
 
                   {/* Content */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2 mb-1.5">
-                      <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-1.5 sm:gap-2 mb-1.5">
+                      <div className="flex items-center gap-2 flex-wrap min-w-0">
                         <span className={cn(
-                          "text-sm truncate",
+                          "text-sm truncate max-w-[150px] xs:max-w-none",
                           isUnread ? "font-bold text-foreground" : "font-semibold text-foreground/90"
                         )}>
                           {customer?.name || "Pelanggan Anonim"}
@@ -367,10 +368,8 @@ export default function InboxPage() {
                         <Badge
                           variant="outline"
                           className={cn(
-                            "inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md border",
-                            sentimentCfg.bg,
-                            sentimentCfg.color,
-                            sentimentCfg.border
+                            "inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-md border shrink-0",
+                            sentimentCfg.bg, sentimentCfg.color, sentimentCfg.border
                           )}
                         >
                           <SentimentIcon className="h-3 w-3" />
@@ -378,7 +377,7 @@ export default function InboxPage() {
                         </Badge>
                       </div>
                       
-                      <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0 font-medium">
+                      <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0 font-medium sm:ml-auto">
                         {timeAgo(conv.updated_at)}
                       </span>
                     </div>

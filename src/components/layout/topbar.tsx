@@ -54,8 +54,9 @@ export function TopBar({ onMenuClick }: TopBarProps) {
 
     fetchUnreadCount();
 
+    const uniqueChannelName = `topbar-unread-${Math.random().toString(36).substring(2, 9)}`;
     const channel = supabase
-      .channel("topbar-unread-realtime")
+      .channel(uniqueChannelName)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "conversations" },
@@ -76,7 +77,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
       <Button
         variant="ghost"
         size="icon"
-        className="lg:hidden h-9 w-9 cursor-pointer"
+        className="lg:hidden h-11 w-11 sm:h-9 sm:w-9 cursor-pointer"
         onClick={onMenuClick}
         aria-label="Buka menu navigasi"
       >
@@ -93,7 +94,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
           <TooltipTrigger
             onMouseEnter={() => setNotifHover(true)}
             onMouseLeave={() => setNotifHover(false)}
-            className="h-9 w-9 relative cursor-pointer inline-flex items-center justify-center rounded-lg hover:bg-muted transition-colors"
+            className="h-11 w-11 sm:h-9 sm:w-9 relative cursor-pointer inline-flex items-center justify-center rounded-lg hover:bg-muted transition-colors"
             aria-label="Notifikasi"
           >
             <Bell className={cn("h-4 w-4 transition-transform duration-200", notifHover && "animate-bounce")} />
@@ -109,7 +110,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
         {/* Theme toggle */}
         <Tooltip>
           <TooltipTrigger
-            className="h-9 w-9 cursor-pointer inline-flex items-center justify-center rounded-lg hover:bg-muted transition-colors"
+            className="h-11 w-11 sm:h-9 sm:w-9 cursor-pointer inline-flex items-center justify-center rounded-lg hover:bg-muted transition-colors"
             onClick={toggleTheme}
             aria-label={theme === "dark" ? "Mode Terang" : "Mode Gelap"}
           >
@@ -130,7 +131,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
         {/* User dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger
-            className="h-9 gap-2 px-2 cursor-pointer inline-flex items-center rounded-lg hover:bg-muted transition-colors"
+            className="h-11 sm:h-9 gap-2 px-2 cursor-pointer inline-flex items-center rounded-lg hover:bg-muted transition-colors"
             aria-label="Menu pengguna"
           >
             <div className="h-7 w-7 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center text-[11px] font-semibold text-primary">

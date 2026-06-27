@@ -142,9 +142,10 @@ function SidebarContent({
 
     fetchUnreadCount();
 
-    // Subscribe to realtime database updates
+    // Subscribe to realtime database updates with a unique channel name to prevent collisions between desktop and mobile sidebars
+    const uniqueChannelName = `sidebar-unread-${Math.random().toString(36).substring(2, 9)}`;
     const channel = supabase
-      .channel("sidebar-unread-realtime")
+      .channel(uniqueChannelName)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "conversations" },

@@ -292,8 +292,9 @@ export default function ConversationDetailPage({ params }: { params: Promise<{ i
     if (!isUsingSupabase || !id) return;
 
     // Listen for new messages inserted
+    const uniqueChannelName = `room-${id}-${Math.random().toString(36).substring(2, 9)}`;
     const channel = supabase
-      .channel(`room:${id}`)
+      .channel(uniqueChannelName)
       .on(
         "postgres_changes",
         {
@@ -662,7 +663,7 @@ export default function ConversationDetailPage({ params }: { params: Promise<{ i
   }
 
   return (
-    <div className="flex flex-col lg:flex-row gap-4 h-[calc(100vh-7.5rem)] animate-in">
+    <div className="flex flex-col lg:flex-row gap-4 h-[calc(100dvh-7.5rem)] animate-in">
       {/* Left: Chat area */}
       <div className="flex-1 flex flex-col min-w-0 border border-border/80 rounded-2xl bg-card shadow-xs overflow-hidden">
         {/* Chat header */}
@@ -670,7 +671,7 @@ export default function ConversationDetailPage({ params }: { params: Promise<{ i
           <Link
             href="/inbox"
             aria-label="Kembali ke inbox"
-            className="h-8.5 w-8.5 shrink-0 inline-flex items-center justify-center rounded-lg hover:bg-muted border border-border/40 transition-colors cursor-pointer"
+            className="h-11 w-11 sm:h-8.5 sm:w-8.5 shrink-0 inline-flex items-center justify-center rounded-lg hover:bg-muted border border-border/40 transition-colors cursor-pointer"
           >
             <ArrowLeft className="h-4 w-4" />
           </Link>
@@ -741,7 +742,7 @@ export default function ConversationDetailPage({ params }: { params: Promise<{ i
                   <Button
                     variant="outline"
                     size="icon"
-                    className="h-8.5 w-8.5 lg:hidden cursor-pointer rounded-xl border border-border/80 shrink-0"
+                    className="h-11 w-11 sm:h-8.5 sm:w-8.5 lg:hidden cursor-pointer rounded-xl border border-border/80 shrink-0"
                     aria-label="Info Pelanggan"
                   />
                 }
@@ -759,7 +760,7 @@ export default function ConversationDetailPage({ params }: { params: Promise<{ i
             {/* AI Summary */}
             <Tooltip>
               <TooltipTrigger
-                className="h-8.5 gap-1.5 text-[11px] font-semibold cursor-pointer inline-flex items-center px-2.5 sm:px-3 rounded-xl border border-border/80 hover:bg-accent transition-colors disabled:opacity-50 shrink-0"
+                className="h-11 sm:h-8.5 gap-1.5 text-[11px] font-semibold cursor-pointer inline-flex items-center px-2.5 sm:px-3 rounded-xl border border-border/80 hover:bg-accent transition-colors disabled:opacity-50 shrink-0"
                 onClick={handleAiSummary}
                 disabled={aiSummaryLoading}
               >
@@ -774,7 +775,7 @@ export default function ConversationDetailPage({ params }: { params: Promise<{ i
               size="sm"
               onClick={handleAiDraft}
               disabled={aiDraftLoading}
-              className="h-8.5 gap-1.5 text-[11px] font-semibold cursor-pointer rounded-xl shadow-xs px-2.5 sm:px-3 shrink-0"
+              className="h-11 sm:h-8.5 gap-1.5 text-[11px] font-semibold cursor-pointer rounded-xl shadow-xs px-2.5 sm:px-3 shrink-0"
             >
               <Sparkles className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">AI Draft</span>
