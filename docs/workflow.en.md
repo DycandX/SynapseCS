@@ -23,6 +23,31 @@ main                    production — live
 
 ---
 
+## Sprint Workflow
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      One Sprint (P0 / P1 / P2)              │
+│                                                             │
+│  Task 1:  feat/xxx ──(PR)──→ develop                        │
+│  Task 2:  fix/xxx  ──(PR)──→ develop                        │
+│  Task 3:  perf/xxx ──(PR)──→ develop                        │
+│  ...                                                         │
+│  Final:   develop ──(merge)──→ main ──(tag)──→ deploy       │
+└─────────────────────────────────────────────────────────────┘
+```
+
+| Step | Target | When |
+|------|--------|------|
+| Task branch → `develop` | Integration & testing | **Each task completed** |
+| `develop` → `main` | Production release | **Each sprint completed** |
+
+**Important rules:**
+- **Never merge directly to `main`.** `develop` is staging/QA. `main` only receives tested code via `develop`.
+- **1 task = 1 branch.** Don't combine 2 different tasks in 1 branch.
+
+---
+
 ## Naming Convention
 
 Format: `<prefix>/<kebab-case-description>`

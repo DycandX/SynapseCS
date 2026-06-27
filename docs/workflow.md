@@ -23,6 +23,31 @@ main                    production — live
 
 ---
 
+## Workflow per Sprint
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     Satu Sprint (P0 / P1 / P2)              │
+│                                                             │
+│  Task 1:  feat/xxx ──(PR)──→ develop                        │
+│  Task 2:  fix/xxx  ──(PR)──→ develop                        │
+│  Task 3:  perf/xxx ──(PR)──→ develop                        │
+│  ...                                                         │
+│  Final:   develop ──(merge)──→ main ──(tag)──→ deploy       │
+└─────────────────────────────────────────────────────────────┘
+```
+
+| Langkah | Tujuan | Kapan |
+|---------|--------|-------|
+| Task branch → `develop` | Integrasi & testing | **Tiap 1 task selesai** |
+| `develop` → `main` | Rilis production | **Setelah 1 sprint selesai** |
+
+**Aturan penting:**
+- **Jangan pernah merge langsung ke `main`.** `develop` adalah staging/QA. `main` cuma diisi kalo udah tested lewat `develop`.
+- **Tiap 1 task = 1 branch.** Jangan gabung 2 task beda dalam 1 branch.
+
+---
+
 ## Naming Convention
 
 Format: `<prefix>/<kebab-case-description>`
