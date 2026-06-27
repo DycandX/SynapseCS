@@ -15,9 +15,9 @@ main                    production — live
 
 ### Aturan Dasar
 
-1. **Jangan commit langsung ke `main` atau `develop`.** Semua perubahan lewat PR.
+1. **Task/fix branch merge langsung ke `develop` via terminal.** Nggak perlu PR.
 2. **Branch dari `develop`, merge ke `develop`.**
-3. **Hanya `develop` yang merge ke `main`.** (via PR — setelah semua fitur di sprint siap)
+3. **Hanya `develop` yang merge ke `main` — via PR di GitHub.** (setelah sprint selesai)
 4. **Branch pendek umurnya.** Maksimal 2-3 hari. Kalo lebih, split jadi branch lebih kecil.
 5. **Tiap logical change satu commit.** Jangan nunggu sampe selesai semua baru commit.
 
@@ -29,18 +29,18 @@ main                    production — live
 ┌─────────────────────────────────────────────────────────────┐
 │                     Satu Sprint (P0 / P1 / P2)              │
 │                                                             │
-│  Task 1:  feat/xxx ──(PR)──→ develop                        │
-│  Task 2:  fix/xxx  ──(PR)──→ develop                        │
-│  Task 3:  perf/xxx ──(PR)──→ develop                        │
+│  Task 1:  feat/xxx ──(merge terminal)──→ develop            │
+│  Task 2:  fix/xxx  ──(merge terminal)──→ develop            │
+│  Task 3:  perf/xxx ──(merge terminal)──→ develop            │
 │  ...                                                         │
-│  Final:   develop ──(merge)──→ main ──(tag)──→ deploy       │
+│  Final:   develop ──(PR)──→ main ──(tag)──→ deploy          │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-| Langkah | Tujuan | Kapan |
-|---------|--------|-------|
-| Task branch → `develop` | Integrasi & testing | **Tiap 1 task selesai** |
-| `develop` → `main` | Rilis production | **Setelah 1 sprint selesai** |
+| Langkah | Tujuan | Kapan | Metode |
+|---------|--------|-------|--------|
+| Task branch → `develop` | Integrasi & testing | Tiap 1 task selesai | Merge terminal |
+| `develop` → `main` | Rilis production | Setelah 1 sprint selesai | PR di GitHub |
 
 **Aturan penting:**
 - **Jangan pernah merge langsung ke `main`.** `develop` adalah staging/QA. `main` cuma diisi kalo udah tested lewat `develop`.
@@ -200,22 +200,35 @@ Alasan kenapa perubahan ini perlu
 Langkah test manual
 ```
 
-### 4. Review & Merge
+### 4. Merge ke Develop (Terminal)
 
-- PR minimal di-review 1 orang
-- Harus lulus build (lint + typecheck)
-- Pilih **Squash and Merge** biar history develop rapih
-- Hapus branch setelah merge
-
-### 5. Release ke Production
+Karena solo dev, nggak perlu PR ke develop — langsung merge aja:
 
 ```bash
+git checkout develop
+git pull
+git merge <nama-branch>
+git push origin develop
+git branch -d <nama-branch>
+git push origin --delete <nama-branch>
+```
+
+Pastikan `npm run build && npm run lint` lulus sebelum merge.
+
+### 5. Release ke Production (via PR)
+
+```bash
+# 1. Merge develop ke main via terminal
 git checkout main
 git pull
 git merge develop
+
+# 2. Tag version
 git tag v<major>.<minor>.<patch>
-git push --tags
+git push origin main --tags
 ```
+
+Atau bikin **PR dari `develop` ke `main`** di GitHub untuk audit trail, lalu merge + tag manual. Pilih metode yang lo mau — yang penting ada tag version tiap rilis.
 
 ---
 
