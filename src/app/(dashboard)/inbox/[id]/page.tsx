@@ -10,7 +10,6 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/lib/supabase";
 import {
-  getAIDraftAction,
   getAISummaryAction,
   sendMessageAction,
   claimConversationAction,
@@ -445,11 +444,78 @@ export default function ConversationDetailPage({ params }: { params: Promise<{ i
   const handleAiDraft = async () => {
     setAiDraftLoading(true);
     setShowAiDraft(true);
+    setAiDraftText(""); // Reset text first for streaming experience
     
     if (isUsingSupabase) {
-      const lastMsg = messages.filter((m) => m.sender_type === "customer").pop();
-      const draft = await getAIDraftAction(id, lastMsg?.content || "");
-      setAiDraftText(draft);
+      try {
+        const lastMsg = messages.filter((m) => m.sender_type === "customer").pop();
+        const response = await fetch("/synapse-cs/api/ai/draft", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            conversationId: id,
+            customerMessage: lastMsg?.content || "",
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error ${response.status}`);
+        }
+
+        const reader = response.body?.getReader();
+        const decoder = new TextDecoder();
+        
+        if (reader) {
+          let accumulatedDraft = "";
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            
+            const chunk = decoder.decode(value, { stream: true });
+            // Parse Server-Sent Events (SSE) format: data: ...
+            const lines = chunk.split("\n");
+            for (const line of lines) {
+              const cleanedLine = line.trim();
+              if (!cleanedLine) continue;
+              
+              if (cleanedLine.startsWith("data: ")) {
+                const dataStr = cleanedLine.slice(6).trim();
+                if (dataStr === "[DONE]") continue;
+                
+                try {
+                  // Handle potential nested data: data: wraps from SSE piping
+                  let actualJsonStr = dataStr;
+                  if (actualJsonStr.startsWith("data: ")) {
+                    actualJsonStr = actualJsonStr.slice(6).trim();
+                  }
+                  
+                  if (actualJsonStr === "[DONE]") continue;
+                  
+                  const parsed = JSON.parse(actualJsonStr);
+                  
+                  // Check if OpenRouter returned an error payload
+                  if (parsed.error) {
+                    accumulatedDraft += `\n[Error: ${parsed.error}]`;
+                    setAiDraftText(accumulatedDraft);
+                    break;
+                  }
+                  
+                  const content = parsed.choices?.[0]?.delta?.content || "";
+                  accumulatedDraft += content;
+                  setAiDraftText(accumulatedDraft);
+                } catch (e) {
+                  console.debug("Error parsing SSE line JSON:", cleanedLine, e);
+                }
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Failed to stream AI draft:", error);
+        setAiDraftText("Gagal memproses draf balasan AI.");
+      }
     } else {
       await new Promise((r) => setTimeout(r, 1200));
       setAiDraftText(aiDraftResponses[id] ?? "Halo! Ada yang bisa kami bantu?");
