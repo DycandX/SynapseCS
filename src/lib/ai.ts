@@ -76,10 +76,11 @@ export async function searchSOPs(query: string, matchCount = 2, threshold = 0.2)
 
     // Fallback: Text search menggunakan ILIKE pada kolom title dan content
     console.log("RAG: Menggunakan text-based search fallback");
+    const sanitizedQuery = query.replace(/[(),%]/g, " ");
     const { data: documents, error } = await supabase
       .from("knowledge_embeddings")
       .select("id, title, content")
-      .or(`title.ilike.%${query}%,content.ilike.%${query}%`)
+      .or(`title.ilike.%${sanitizedQuery}%,content.ilike.%${sanitizedQuery}%`)
       .limit(matchCount);
 
     if (error) {
@@ -162,7 +163,7 @@ Tulis draf balasan Anda sekarang:
         "X-Title": "SynapseCS",
       },
       body: JSON.stringify({
-        model: "google/gemma-4-31b-it:free",
+        model: "google/gemma-2-9b-it:free",
         messages: [{ role: "user", content: prompt }],
       }),
     });
@@ -222,7 +223,7 @@ Kembalikan jawaban dalam format JSON terstruktur dengan skema berikut:
         "X-Title": "SynapseCS",
       },
       body: JSON.stringify({
-        model: "google/gemma-4-31b-it:free",
+        model: "google/gemma-2-9b-it:free",
         messages: [{ role: "user", content: prompt }],
       }),
     });
@@ -312,7 +313,7 @@ Kembalikan respon Anda dalam format JSON array berisi 3 string poin:
         "X-Title": "SynapseCS",
       },
       body: JSON.stringify({
-        model: "google/gemma-4-31b-it:free",
+        model: "google/gemma-2-9b-it:free",
         messages: [{ role: "user", content: prompt }],
       }),
     });
