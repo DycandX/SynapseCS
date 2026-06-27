@@ -43,6 +43,7 @@ AGENTS.md
 CLAUDE.md
 prd.md
 skills-lock.json
+.opencode/
 
 # typescript
 *.tsbuildinfo
