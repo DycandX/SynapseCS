@@ -3,7 +3,6 @@
 import { createClient } from "@/utils/supabase/server";
 import { cookies } from "next/headers";
 import {
-  generateAIDraft,
   generateConversationSummary,
   analyzeSentiment,
   getEmbedding,
@@ -203,20 +202,7 @@ export async function updateConversationStatusAction(
   }
 }
 
-/**
- * Server Action: Menghasilkan draf balasan AI dengan konteks RAG SOP.
- */
-export async function getAIDraftAction(
-  conversationId: string,
-  lastMessage: string
-): Promise<string> {
-  try {
-    return await generateAIDraft(conversationId, lastMessage);
-  } catch (error) {
-    console.error("Action error generating draft:", error);
-    return "Maaf, gagal menyusun draf balasan otomatis karena kendala teknis backend.";
-  }
-}
+
 
 /**
  * Server Action: Menghasilkan ringkasan obrolan (3 poin) dan menyimpannya di basis data.
