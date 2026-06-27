@@ -15,11 +15,36 @@ main                    production — live
 
 ### Ground Rules
 
-1. **Never commit directly to `main` or `develop`.** All changes go through PRs.
+1. **Task/fix branches merge directly to `develop` via terminal.** No PR needed.
 2. **Branch from `develop`, merge into `develop`.**
-3. **Only `develop` merges into `main`** — via PR after all sprint features are ready.
+3. **Only `develop` merges into `main` — via PR on GitHub.** (after sprint is complete)
 4. **Keep branches short-lived.** Max 2-3 days. If it takes longer, split into smaller branches.
 5. **One commit per logical change.** Don't wait until everything is done to commit.
+
+---
+
+## Sprint Workflow
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      One Sprint (P0 / P1 / P2)              │
+│                                                             │
+│  Task 1:  feat/xxx ──(terminal merge)──→ develop            │
+│  Task 2:  fix/xxx  ──(terminal merge)──→ develop            │
+│  Task 3:  perf/xxx ──(terminal merge)──→ develop            │
+│  ...                                                         │
+│  Final:   develop ──(PR)──→ main ──(tag)──→ deploy          │
+└─────────────────────────────────────────────────────────────┘
+```
+
+| Step | Target | When | Method |
+|------|--------|------|--------|
+| Task branch → `develop` | Integration & testing | Each task completed | Terminal merge |
+| `develop` → `main` | Production release | Each sprint completed | PR on GitHub |
+
+**Important rules:**
+- **Never merge directly to `main`.** `develop` is staging/QA. `main` only receives tested code via `develop`.
+- **1 task = 1 branch.** Don't combine 2 different tasks in 1 branch.
 
 ---
 
@@ -175,22 +200,35 @@ Reason this change is necessary
 Steps to test manually
 ```
 
-### 4. Review & Merge
+### 4. Merge to Develop (Terminal)
 
-- At least 1 person must review the PR
-- Must pass build (lint + typecheck)
-- Use **Squash and Merge** to keep develop history clean
-- Delete the branch after merging
-
-### 5. Release to Production
+Solo dev — no PR needed for develop, just merge directly:
 
 ```bash
+git checkout develop
+git pull
+git merge <branch-name>
+git push origin develop
+git branch -d <branch-name>
+git push origin --delete <branch-name>
+```
+
+Make sure `npm run build && npm run lint` passes before merging.
+
+### 5. Release to Production (via PR)
+
+```bash
+# 1. Merge develop into main via terminal
 git checkout main
 git pull
 git merge develop
+
+# 2. Tag version
 git tag v<major>.<minor>.<patch>
-git push --tags
+git push origin main --tags
 ```
+
+Or create a **PR from `develop` to `main`** on GitHub for audit trail, then merge + tag manually. Choose whichever method you prefer — just make sure each release has a version tag.
 
 ---
 
