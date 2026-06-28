@@ -451,7 +451,7 @@ export default function ConversationDetailPage({ params }: { params: Promise<{ i
     if (isUsingSupabase) {
       try {
         const lastMsg = messages.filter((m) => m.sender_type === "customer").pop();
-        const response = await fetch("/synapse-cs/api/ai/draft", {
+        const response = await fetch("/api/ai/draft", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
