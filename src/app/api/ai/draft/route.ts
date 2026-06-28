@@ -69,7 +69,7 @@ Tulis draf balasan Anda sekarang:
           headers: {
             "Content-Type": "application/json",
             "Authorization": `Bearer ${openrouterKey}`,
-            "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000/synapse-cs",
+            "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
             "X-Title": "SynapseCS",
           },
           body: JSON.stringify({
