@@ -44,32 +44,50 @@ function parseJSONFromText(text: string) {
 /**
  * Helper to fetch a real embedding vector from OpenRouter using Google Gemini.
  */
-async function getGeminiEmbedding(text: string): Promise<number[]> {
-  const response = await fetch("https://openrouter.ai/api/v1/embeddings", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${openrouterKey}`,
-      "HTTP-Referer": "http://localhost:3000",
-      "X-Title": "SynapseCS",
-    },
-    body: JSON.stringify({
-      model: "google/gemini-embedding-001",
-      input: text,
-    }),
-  });
+async function getGeminiEmbedding(text: string, retries = 3, delay = 1000): Promise<number[]> {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const response = await fetch("https://openrouter.ai/api/v1/embeddings", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${openrouterKey}`,
+          "HTTP-Referer": "http://localhost:3000",
+          "X-Title": "SynapseCS",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-embedding-001",
+          input: text,
+        }),
+      });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`OpenRouter Embeddings API error: ${response.status} ${errorText}`);
+      if (response.status === 429 && i < retries - 1) {
+        console.warn(`RAG: OpenRouter Embeddings returned 429. Retrying in ${delay}ms... (Attempt ${i + 1}/${retries})`);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        delay *= 2;
+        continue;
+      }
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`OpenRouter Embeddings API error: ${response.status} ${errorText}`);
+      }
+
+      const data = await response.json();
+      if (data && data.data && data.data[0] && data.data[0].embedding) {
+        return data.data[0].embedding;
+      }
+      throw new Error("Invalid response format from OpenRouter Embeddings API");
+    } catch (error: any) {
+      if (i === retries - 1) {
+        throw error;
+      }
+      console.warn(`RAG: Embedding fetch error: ${error.message || error}. Retrying in ${delay}ms...`);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+      delay *= 2;
+    }
   }
-
-  const data = await response.json();
-  if (!data?.data?.[0]?.embedding) {
-    throw new Error("Invalid response format from OpenRouter embeddings API");
-  }
-
-  return data.data[0].embedding;
+  throw new Error("Failed to get embedding after retries");
 }
 
 /**
