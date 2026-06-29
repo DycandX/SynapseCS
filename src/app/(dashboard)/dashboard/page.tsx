@@ -3,6 +3,7 @@
 import { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
 import { useAuth } from "@/components/auth-provider";
+import { ErrorBoundary } from "@/components/error-boundary";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -61,7 +62,7 @@ const sentimentConfig: Record<Sentiment, { label: string; icon: typeof Flame; co
   },
 };
 
-export default function DashboardPage() {
+function DashboardPage() {
   const { user: currentUser, isUsingSupabase } = useAuth();
   
   // Dashboard states
@@ -670,5 +671,13 @@ export default function DashboardPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function DashboardPageWithErrorBoundary() {
+  return (
+    <ErrorBoundary>
+      <DashboardPage />
+    </ErrorBoundary>
   );
 }

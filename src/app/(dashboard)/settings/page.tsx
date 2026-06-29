@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/components/auth-provider";
+import { ErrorBoundary } from "@/components/error-boundary";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -104,7 +105,7 @@ const actionBadgeConfig: Record<string, { label: string; color: string; bg: stri
   },
 };
 
-export default function SettingsPage() {
+function SettingsPage() {
   const { user, isUsingSupabase } = useAuth();
   const isAdmin = user?.role === "admin";
 
@@ -453,5 +454,13 @@ export default function SettingsPage() {
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+export default function SettingsPageWithErrorBoundary() {
+  return (
+    <ErrorBoundary>
+      <SettingsPage />
+    </ErrorBoundary>
   );
 }

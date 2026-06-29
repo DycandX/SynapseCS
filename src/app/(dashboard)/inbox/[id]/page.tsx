@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, use } from "react";
 import Link from "next/link";
 import { useAuth } from "@/components/auth-provider";
+import { ErrorBoundary } from "@/components/error-boundary";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -192,7 +193,7 @@ function MessageBubble({ msg }: { msg: ChatMessage }) {
   );
 }
 
-export default function ConversationDetailPage({ params }: { params: Promise<{ id: string }> }) {
+function ConversationDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { user: currentUser, isUsingSupabase } = useAuth();
   
@@ -1027,5 +1028,13 @@ export default function ConversationDetailPage({ params }: { params: Promise<{ i
         <CustomerProfileContent />
       </div>
     </div>
+  );
+}
+
+export default function ConversationDetailPageWithErrorBoundary(props: { params: Promise<{ id: string }> }) {
+  return (
+    <ErrorBoundary>
+      <ConversationDetailPage params={props.params} />
+    </ErrorBoundary>
   );
 }

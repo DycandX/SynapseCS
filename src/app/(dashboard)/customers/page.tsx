@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { useAuth } from "@/components/auth-provider";
+import { ErrorBoundary } from "@/components/error-boundary";
 import { supabase } from "@/lib/supabase";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -30,7 +31,7 @@ function formatDate(dateStr: string): string {
   });
 }
 
-export default function CustomersPage() {
+function CustomersPage() {
   const { isUsingSupabase } = useAuth();
   
   const [customersList, setCustomersList] = useState<any[]>([]);
@@ -209,5 +210,13 @@ export default function CustomersPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function CustomersPageWithErrorBoundary() {
+  return (
+    <ErrorBoundary>
+      <CustomersPage />
+    </ErrorBoundary>
   );
 }
