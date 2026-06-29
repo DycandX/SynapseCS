@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { useAuth } from "@/components/auth-provider";
+import { ErrorBoundary } from "@/components/error-boundary";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -93,7 +94,7 @@ function timeAgo(dateStr: string): string {
   return `${diffDays} hari lalu`;
 }
 
-export default function InboxPage() {
+function InboxPage() {
   const { isUsingSupabase } = useAuth();
   
   const [conversationsList, setConversationsList] = useState<any[]>([]);
@@ -487,5 +488,13 @@ export default function InboxPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function InboxPageWithErrorBoundary() {
+  return (
+    <ErrorBoundary>
+      <InboxPage />
+    </ErrorBoundary>
   );
 }

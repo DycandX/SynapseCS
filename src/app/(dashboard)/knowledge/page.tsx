@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { getSOPsAction, addSOPAction } from "@/app/actions";
+import { ErrorBoundary } from "@/components/error-boundary";
 import { Input } from "@/components/ui/input";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -34,7 +35,7 @@ function formatDate(dateStr: string): string {
   });
 }
 
-export default function KnowledgePage() {
+function KnowledgePage() {
   const { isUsingSupabase } = useAuth();
   
   // States
@@ -265,5 +266,13 @@ export default function KnowledgePage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function KnowledgePageWithErrorBoundary() {
+  return (
+    <ErrorBoundary>
+      <KnowledgePage />
+    </ErrorBoundary>
   );
 }

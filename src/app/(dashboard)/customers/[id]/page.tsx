@@ -3,6 +3,7 @@
 import { use, useState, useEffect } from "react";
 import Link from "next/link";
 import { useAuth } from "@/components/auth-provider";
+import { ErrorBoundary } from "@/components/error-boundary";
 import { supabase } from "@/lib/supabase";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -96,7 +97,7 @@ function formatShortDate(dateStr: string): string {
   });
 }
 
-export default function CustomerDetailPage({
+function CustomerDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>;
@@ -314,5 +315,13 @@ export default function CustomerDetailPage({
         )}
       </div>
     </div>
+  );
+}
+
+export default function CustomerDetailPageWithErrorBoundary(props: { params: Promise<{ id: string }> }) {
+  return (
+    <ErrorBoundary>
+      <CustomerDetailPage params={props.params} />
+    </ErrorBoundary>
   );
 }
