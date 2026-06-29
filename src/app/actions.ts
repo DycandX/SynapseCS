@@ -326,16 +326,16 @@ export async function sendMessageAction(
 
         const customerName = (convo as any)?.customers?.name || "Pelanggan";
 
-        // Kirim email darurat via Resend
-        await sendUrgentAlertEmail(customerName, content, conversationId);
-
-        // Sisipkan pesan log sistem AI secara otomatis
+        // Kirim email darurat via Resend dan sisipkan pesan log sistem AI secara paralel
         const systemLogContent = `📊 Analisis Sentimen: MARAH — Pelanggan mengekspresikan kekecewaan tinggi terkait keluhannya. Notifikasi eskalasi darurat telah dikirim ke administrator.`;
-        await supabase.from("messages").insert({
-          conversation_id: conversationId,
-          sender_type: "ai_system",
-          content: systemLogContent,
-        });
+        await Promise.all([
+          sendUrgentAlertEmail(customerName, content, conversationId),
+          supabase.from("messages").insert({
+            conversation_id: conversationId,
+            sender_type: "ai_system",
+            content: systemLogContent,
+          }),
+        ]);
 
         // Catat di log audit aktivitas sistem
         await logActivityAction(
@@ -436,9 +436,11 @@ export async function getDashboardStatsAction() {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
-    // Tarik data mentah dari database (Cached)
-    const convos = await getCachedStats();
-    const { count: totalCustomers } = await supabase.from("customers").select("*", { count: "exact", head: true });
+    // Tarik data mentah dari database dan jumlah pelanggan secara paralel
+    const [convos, { count: totalCustomers }] = await Promise.all([
+      getCachedStats(),
+      supabase.from("customers").select("*", { count: "exact", head: true }),
+    ]);
     
     const conversationsList = convos || [];
     const total = conversationsList.length;

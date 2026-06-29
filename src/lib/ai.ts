@@ -154,19 +154,20 @@ export async function generateAIDraft(conversationId: string, customerMessage: s
 
   try {
     const supabase = await getSupabaseClient();
-    // 1. Cari SOP yang relevan
-    const sops = await searchSOPs(customerMessage, 2, 0.2);
+    // 1 & 2. Cari SOP yang relevan dan tarik riwayat pesan terakhir secara paralel
+    const [sops, { data: messages }] = await Promise.all([
+      searchSOPs(customerMessage, 2, 0.2),
+      supabase
+        .from("messages")
+        .select("sender_type, content")
+        .eq("conversation_id", conversationId)
+        .order("created_at", { ascending: true })
+        .limit(10),
+    ]);
+
     const sopContext = sops.length > 0
       ? sops.map((doc: any) => `SOP: ${doc.title}\nIsi SOP: ${doc.content}`).join("\n\n")
       : "Tidak ditemukan SOP spesifik yang cocok di basis pengetahuan.";
-
-    // 2. Tarik riwayat pesan terakhir untuk konteks tambahan
-    const { data: messages } = await supabase
-      .from("messages")
-      .select("sender_type, content")
-      .eq("conversation_id", conversationId)
-      .order("created_at", { ascending: true })
-      .limit(10);
 
     const chatHistoryContext = messages && messages.length > 0
       ? messages.map((m) => `${m.sender_type === "agent" ? "Agen" : "Pelanggan"}: ${m.content}`).join("\n")
