@@ -56,7 +56,7 @@ async function getGeminiEmbedding(text: string, retries = 3, delay = 1000): Prom
           "X-Title": "SynapseCS",
         },
         body: JSON.stringify({
-          model: "google/gemini-embedding-001",
+          model: "thenlper/gte-base",
           input: text,
         }),
       });
