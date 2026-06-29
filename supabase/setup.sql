@@ -1,6 +1,12 @@
 -- ─────────────────────────────────────────────────────────────
 -- SynapseCS — Database Setup Script (Gemini & pgvector Optimized)
 -- Run this in the Supabase SQL Editor
+--
+-- Untuk set admin role, jalankan di Supabase SQL Editor:
+-- select supabase_auth.admin.update_user_by_id(
+--   'user-uuid-here',
+--   '{"app_metadata": {"role": "admin"}}'::jsonb
+-- );
 -- ─────────────────────────────────────────────────────────────
 
 -- 1. Enable Required Extensions
