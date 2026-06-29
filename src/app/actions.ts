@@ -23,6 +23,7 @@ import {
   getConversationsPaginated,
   getMessagesPaginated,
 } from "@/lib/queries";
+import { rateLimit } from "@/lib/rate-limit";
 
 /**
  * Server Action: Mencatat log aktivitas audit ke database (Standar Industri).
@@ -242,11 +243,18 @@ export async function getAISummaryAction(
   conversationId: string
 ): Promise<string[]> {
   try {
-    const summaryPoints = await generateConversationSummary(conversationId);
-    const summaryText = summaryPoints.join(" \n");
-
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
+
+    const { data: { session } } = await supabase.auth.getSession();
+    const userId = session?.user?.id || "anonymous";
+    const { success } = await rateLimit.limit(userId);
+    if (!success) {
+      return ["Too many requests. Try again later."];
+    }
+
+    const summaryPoints = await generateConversationSummary(conversationId);
+    const summaryText = summaryPoints.join(" \n");
 
     // Simpan ringkasan ke tabel conversations di Supabase
     await supabase
@@ -283,6 +291,13 @@ export async function sendMessageAction(
 
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
+
+    const { data: { session } } = await supabase.auth.getSession();
+    const userId = session?.user?.id || "anonymous";
+    const { success } = await rateLimit.limit(userId);
+    if (!success) {
+      return { success: false, error: "Too many requests. Try again later." };
+    }
 
     // 1. Masukkan pesan ke tabel messages
     const { data: message, error: messageError } = await supabase
@@ -398,6 +413,13 @@ export async function addSOPAction(
 
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
+
+    const { data: { session } } = await supabase.auth.getSession();
+    const userId = session?.user?.id || "anonymous";
+    const { success } = await rateLimit.limit(userId);
+    if (!success) {
+      return { success: false, error: "Too many requests. Try again later." };
+    }
 
     // 1. Hasilkan embedding 768 dimensi via Gemini text-embedding-004
     const embedding = await getEmbedding(content);

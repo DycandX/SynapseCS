@@ -1,11 +1,22 @@
 import { searchSOPs } from "@/lib/ai";
 import { createClient } from "@/utils/supabase/server";
 import { cookies } from "next/headers";
+import { rateLimit } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
   const { conversationId, customerMessage } = await req.json();
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
+
+  const { data: { session } } = await supabase.auth.getSession();
+  const userId = session?.user?.id || "anonymous";
+  const { success } = await rateLimit.limit(userId);
+  if (!success) {
+    return new Response(JSON.stringify({ error: "Too many requests. Try again later." }), {
+      status: 429,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
   
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
