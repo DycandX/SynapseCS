@@ -71,3 +71,66 @@ export const getCachedStats = unstable_cache(
   ["dashboard-stats"],
   { revalidate: 30 }
 );
+
+/**
+ * Request-scoped cached query for paginated conversations.
+ */
+export const getConversationsPaginated = cache(
+  async (cookieStore: CookieStore, cursor?: string, limit = 20) => {
+    const supabase = createClient(cookieStore);
+
+    let query = supabase
+      .from("conversations")
+      .select(`
+        id,
+        customer_id,
+        status,
+        sentiment,
+        ai_summary,
+        created_at,
+        updated_at,
+        customers (id, name, email, phone),
+        profiles (id, name, role),
+        messages (id, sender_type, content, created_at)
+      `)
+      .order("created_at", { ascending: false })
+      .limit(limit + 1);
+
+    if (cursor) {
+      query = query.lt("created_at", cursor);
+    }
+
+    const { data } = await query;
+    const hasMore = data ? data.length > limit : false;
+    if (hasMore) data?.pop();
+    const nextCursor = data && data.length > 0 ? data[data.length - 1].created_at : null;
+
+    return { data: data || [], nextCursor, hasMore };
+  }
+);
+
+/**
+ * Request-scoped cached query for paginated messages.
+ */
+export const getMessagesPaginated = cache(
+  async (cookieStore: CookieStore, conversationId: string, before?: string) => {
+    const supabase = createClient(cookieStore);
+
+    let query = supabase
+      .from("messages")
+      .select("id, sender_type, content, attachment_url, created_at")
+      .eq("conversation_id", conversationId)
+      .order("created_at", { ascending: false })
+      .limit(30);
+
+    if (before) {
+      query = query.lt("created_at", before);
+    }
+
+    const { data } = await query;
+    const hasMore = data && data.length >= 30;
+    const prevCursor = data && data.length > 0 ? data[data.length - 1].created_at : null;
+
+    return { data: (data || []).reverse(), prevCursor, hasMore };
+  }
+);

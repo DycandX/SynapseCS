@@ -16,7 +16,9 @@ import {
   updateConversationStatusAction,
   getConversationByIdAction,
   getMessagesAction,
+  getMessagesPaginatedAction,
 } from "@/app/actions";
+import { Virtuoso } from "react-virtuoso";
 import {
   Tooltip,
   TooltipContent,
@@ -210,7 +212,14 @@ export default function ConversationDetailPage({ params }: { params: Promise<{ i
   const [aiSummaryPoints, setAiSummaryPoints] = useState<string[]>([]);
   const [copied, setCopied] = useState(false);
   const [claiming, setClaiming] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+ 
+  const [prevCursor, setPrevCursor] = useState<string | null>(null);
+  const [hasMoreMessages, setHasMoreMessages] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const START_INDEX = 10000;
+  const [firstItemIndex, setFirstItemIndex] = useState(START_INDEX);
+ 
+  const virtuosoRef = useRef<any>(null);
 
   // 1. Fetch data based on Auth provider mode (Supabase or Dummy)
   useEffect(() => {
@@ -229,9 +238,12 @@ export default function ConversationDetailPage({ params }: { params: Promise<{ i
           setCustomer(convo.customers);
           setAgent(convo.profiles || null);
 
-          // Fetch messages (Cached)
-          const msgs = await getMessagesAction(id);
-          setMessages(msgs || []);
+          // Fetch messages (Paginated)
+          const res = await getMessagesPaginatedAction(id);
+          setMessages(res.data || []);
+          setPrevCursor(res.prevCursor);
+          setHasMoreMessages(!!res.hasMore);
+          setFirstItemIndex(START_INDEX - (res.data ? res.data.length : 0));
         } catch (error: any) {
           console.error("Error loading chat details from Supabase:", error?.message || error);
         } finally {
@@ -335,10 +347,35 @@ export default function ConversationDetailPage({ params }: { params: Promise<{ i
     };
   }, [id, isUsingSupabase]);
 
+  const loadOlderMessages = async () => {
+    if (loadingOlder || !hasMoreMessages || !prevCursor) return;
+    setLoadingOlder(true);
+    try {
+      const res = await getMessagesPaginatedAction(id, prevCursor);
+      if (res.data && res.data.length > 0) {
+        setMessages((prev) => [...res.data, ...prev]);
+        setPrevCursor(res.prevCursor);
+        setHasMoreMessages(!!res.hasMore);
+        setFirstItemIndex((prev) => prev - res.data.length);
+      } else {
+        setHasMoreMessages(false);
+      }
+    } catch (error) {
+      console.error("Error loading older messages:", error);
+    } finally {
+      setLoadingOlder(false);
+    }
+  };
+ 
   // Scroll to bottom on messages update
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    if (!loadingOlder && messages.length > 0) {
+      virtuosoRef.current?.scrollToIndex({
+        index: messages.length - 1,
+        behavior: "smooth"
+      });
+    }
+  }, [messages, loadingOlder]);
 
   // Handle claiming ticket
   const handleClaimTicket = async () => {
@@ -863,24 +900,44 @@ export default function ConversationDetailPage({ params }: { params: Promise<{ i
           </div>
         )}
 
-        {/* Message Thread (Native scroll responsive container) */}
-        <div className="flex-1 overflow-y-auto px-4 py-4 scrollbar-thin scroll-smooth bg-card [scrollbar-gutter:stable] -webkit-overflow-scrolling-touch">
-          <div className="space-y-4 max-w-2xl mx-auto">
-            <div className="flex items-center gap-3 justify-center mb-4">
-              <span className="text-[10px] font-bold text-muted-foreground bg-muted/60 px-3 py-1 rounded-full border border-border/40">
-                {formatDate(messages[0]?.created_at || conversation.created_at)}
-              </span>
-            </div>
-
-            {messages.length === 0 ? (
+        {/* Message Thread (Virtual scroll container) */}
+        <div className="flex-1 overflow-hidden bg-card flex flex-col relative">
+          {messages.length === 0 ? (
+            <div className="flex-1 flex items-center justify-center p-4">
               <p className="text-xs text-muted-foreground text-center py-10 font-medium">Belum ada obrolan dalam tiket ini.</p>
-            ) : (
-              messages.map((msg) => (
-                <MessageBubble key={msg.id} msg={msg} />
-              ))
-            )}
-            <div ref={messagesEndRef} />
-          </div>
+            </div>
+          ) : (
+            <Virtuoso
+              ref={virtuosoRef}
+              data={messages}
+              initialTopMostItemIndex={messages.length - 1}
+              followOutput="smooth"
+              firstItemIndex={firstItemIndex}
+              startReached={loadOlderMessages}
+              itemContent={(index, msg) => (
+                <div className="px-4 py-2">
+                  <div className="max-w-2xl mx-auto">
+                    <MessageBubble msg={msg} />
+                  </div>
+                </div>
+              )}
+              components={{
+                Header: () => (
+                  <div className="flex flex-col items-center gap-3 justify-center py-4">
+                    {hasMoreMessages && (
+                      <div className="text-xs text-muted-foreground font-medium animate-pulse">
+                        {loadingOlder ? "Memuat pesan lama..." : "Scroll ke atas untuk memuat pesan lama"}
+                      </div>
+                    )}
+                    <span className="text-[10px] font-bold text-muted-foreground bg-muted/60 px-3 py-1 rounded-full border border-border/40">
+                      {formatDate(messages[0]?.created_at || conversation.created_at)}
+                    </span>
+                  </div>
+                )
+              }}
+              className="flex-1 w-full scrollbar-thin [scrollbar-gutter:stable]"
+            />
+          )}
         </div>
 
         {/* AI Draft Panel */}

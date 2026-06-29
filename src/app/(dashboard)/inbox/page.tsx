@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { useAuth } from "@/components/auth-provider";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/lib/supabase";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getConversationsAction } from "@/app/actions";
+import { getConversationsAction, getConversationsPaginatedAction } from "@/app/actions";
 import {
   Search,
   Flame,
@@ -100,19 +100,65 @@ export default function InboxPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+ 
+  const observerTarget = useRef<HTMLDivElement>(null);
+ 
   // Fetch conversations function
   const fetchConversations = async () => {
     setLoading(true);
     try {
-      const data = await getConversationsAction();
-      setConversationsList(data || []);
+      if (isUsingSupabase) {
+        const res = await getConversationsPaginatedAction(undefined, 20);
+        setConversationsList(res.data || []);
+        setNextCursor(res.nextCursor);
+        setHasMore(res.hasMore);
+      } else {
+        const data = await getConversationsAction();
+        setConversationsList(data || []);
+      }
     } catch (err: any) {
       console.error("Failed to load conversations from Supabase:", err?.message || err?.details || err);
     } finally {
       setLoading(false);
     }
   };
+ 
+  const loadMoreConversations = async () => {
+    if (loadingMore || !hasMore || !nextCursor) return;
+    setLoadingMore(true);
+    try {
+      const res = await getConversationsPaginatedAction(nextCursor, 20);
+      setConversationsList((prev) => [...prev, ...res.data]);
+      setNextCursor(res.nextCursor);
+      setHasMore(res.hasMore);
+    } catch (err) {
+      console.error("Error loading more conversations:", err);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+ 
+  useEffect(() => {
+    if (!hasMore || !nextCursor || loadingMore) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          loadMoreConversations();
+        }
+      },
+      { threshold: 1.0 }
+    );
+ 
+    const target = observerTarget.current;
+    if (target) observer.observe(target);
+ 
+    return () => {
+      if (target) observer.unobserve(target);
+    };
+  }, [hasMore, nextCursor, loadingMore]);
 
   // 1. Initial Load
   useEffect(() => {
@@ -419,6 +465,25 @@ export default function InboxPage() {
               </Link>
             );
           })}
+ 
+          {/* Infinite Scroll Observer Target */}
+          {hasMore && (
+            <div ref={observerTarget} className="flex justify-center py-4">
+              {loadingMore ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground font-medium animate-pulse">
+                  <div className="h-4.5 w-4.5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                  Memuat percakapan lainnya...
+                </div>
+              ) : (
+                <button
+                  onClick={loadMoreConversations}
+                  className="text-xs font-semibold text-primary hover:underline bg-primary/5 hover:bg-primary/10 px-4 py-2 rounded-xl transition border border-primary/15"
+                >
+                  Muat Lebih Banyak
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>

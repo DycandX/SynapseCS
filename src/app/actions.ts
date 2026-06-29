@@ -20,6 +20,8 @@ import {
   getConversationById,
   getMessages,
   getCachedStats,
+  getConversationsPaginated,
+  getMessagesPaginated,
 } from "@/lib/queries";
 
 /**
@@ -56,12 +58,12 @@ export async function logActivityAction(
 /**
  * Server Action: Mengambil daftar log aktivitas audit (Admin only / Agent).
  */
-export async function getActivityLogsAction() {
+export async function getActivityLogsAction(cursor?: string, limit: number = 20) {
   try {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
-
-    const { data, error } = await supabase
+ 
+    let query = supabase
       .from("activity_logs")
       .select(`
         id,
@@ -72,8 +74,14 @@ export async function getActivityLogsAction() {
         profiles (name, role)
       `)
       .order("created_at", { ascending: false })
-      .limit(50);
-
+      .limit(limit);
+ 
+    if (cursor) {
+      query = query.lt("created_at", cursor);
+    }
+ 
+    const { data, error } = await query;
+ 
     if (error) throw error;
     return data || [];
   } catch (error) {
@@ -509,5 +517,31 @@ export async function getMessagesAction(conversationId: string) {
   } catch (error) {
     console.error("Action error fetching messages:", error);
     return [];
+  }
+}
+
+/**
+ * Server Action: Mengambil daftar percakapan ter-paginasi (Cached).
+ */
+export async function getConversationsPaginatedAction(cursor?: string, limit = 20) {
+  try {
+    const cookieStore = await cookies();
+    return await getConversationsPaginated(cookieStore, cursor, limit);
+  } catch (error) {
+    console.error("Action error fetching paginated conversations:", error);
+    return { data: [], nextCursor: null, hasMore: false };
+  }
+}
+
+/**
+ * Server Action: Mengambil pesan ter-paginasi (Cached).
+ */
+export async function getMessagesPaginatedAction(conversationId: string, before?: string) {
+  try {
+    const cookieStore = await cookies();
+    return await getMessagesPaginated(cookieStore, conversationId, before);
+  } catch (error) {
+    console.error("Action error fetching paginated messages:", error);
+    return { data: [], prevCursor: null, hasMore: false };
   }
 }
