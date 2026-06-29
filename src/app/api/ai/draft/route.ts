@@ -1,4 +1,4 @@
-import { searchSOPs } from "@/lib/ai";
+import { searchSOPs, callOpenRouterCompletion } from "@/lib/ai";
 import { createClient } from "@/utils/supabase/server";
 import { cookies } from "next/headers";
 import { rateLimit } from "@/lib/rate-limit";
@@ -74,27 +74,11 @@ Aturan penulisan draf:
 Tulis draf balasan Anda sekarang:
         `.trim();
         
-        // 3. Call OpenRouter with stream: true
-        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${openrouterKey}`,
-            "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-            "X-Title": "SynapseCS",
-          },
-          body: JSON.stringify({
-            model: "google/gemma-4-31b-it:free",
-            messages: [{ role: "user", content: prompt }],
-            stream: true,
-          }),
-        });
-        
-        if (!response.ok) {
-          controller.enqueue(encoder.encode(`data: {"error":"API ${response.status}"}\n\n`));
-          controller.close();
-          return;
-        }
+        // 3. Call OpenRouter with stream: true and fallback models
+        const response = await callOpenRouterCompletion(
+          [{ role: "user", content: prompt }],
+          { stream: true }
+        );
         
         // 4. Pipe stream
         const reader = response.body!.getReader();

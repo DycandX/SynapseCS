@@ -22,6 +22,60 @@ if (!process.env.OPENROUTER_API_KEY) {
 }
 
 /**
+ * Helper to call OpenRouter completions with automatic model fallback for resilience.
+ */
+export async function callOpenRouterCompletion(
+  messages: { role: string; content: string }[],
+  options?: { stream?: boolean }
+): Promise<Response> {
+  const models = [
+    "meta-llama/llama-3.3-70b-instruct:free",
+    "google/gemma-4-31b-it:free",
+    "openrouter/free"
+  ];
+
+  let lastError: any = null;
+  for (const model of models) {
+    try {
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${openrouterKey}`,
+          "HTTP-Referer": "http://localhost:3000",
+          "X-Title": "SynapseCS",
+        },
+        body: JSON.stringify({
+          model,
+          messages,
+          stream: options?.stream || false,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Model ${model} failed with HTTP ${response.status}: ${errorText}`);
+      }
+
+      // If not streaming, verify if OpenRouter returned a provider error inside a 200 OK JSON
+      if (!options?.stream) {
+        const clone = response.clone();
+        const data = await clone.json();
+        if (data.error) {
+          throw new Error(`Model ${model} returned provider error: ${data.error.message || JSON.stringify(data.error)}`);
+        }
+      }
+
+      return response;
+    } catch (err: any) {
+      console.warn(`OpenRouter model ${model} failed. Trying next fallback... Error: ${err.message || err}`);
+      lastError = err;
+    }
+  }
+  throw lastError || new Error("All fallback models failed on OpenRouter");
+}
+
+/**
  * Helper to safely parse JSON from model responses, handling potential markdown formatting or conversational text.
  */
 function parseJSONFromText(text: string) {
@@ -217,30 +271,7 @@ Aturan penulisan draf:
 Tulis draf balasan Anda sekarang:
     `;
 
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${openrouterKey}`,
-        "HTTP-Referer": "http://localhost:3000",
-        "X-Title": "SynapseCS",
-      },
-      body: JSON.stringify({
-        model: "google/gemma-4-31b-it:free",
-        messages: [{ role: "user", content: prompt }],
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      let errorMsg = `HTTP Error ${response.status}`;
-      try {
-        const errorJSON = JSON.parse(errorText);
-        errorMsg = errorJSON.error?.message || errorMsg;
-      } catch {}
-      throw new Error(`OpenRouter API error: ${errorMsg}`);
-    }
-
+    const response = await callOpenRouterCompletion([{ role: "user", content: prompt }]);
     const data = await response.json();
     if (data.choices && data.choices[0]) {
       return data.choices[0].message.content.trim();
@@ -277,30 +308,7 @@ Kembalikan jawaban dalam format JSON terstruktur dengan skema berikut:
 }
     `;
 
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${openrouterKey}`,
-        "HTTP-Referer": "http://localhost:3000",
-        "X-Title": "SynapseCS",
-      },
-      body: JSON.stringify({
-        model: "google/gemma-4-31b-it:free",
-        messages: [{ role: "user", content: prompt }],
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      let errorMsg = `HTTP Error ${response.status}`;
-      try {
-        const errorJSON = JSON.parse(errorText);
-        errorMsg = errorJSON.error?.message || errorMsg;
-      } catch {}
-      throw new Error(`OpenRouter Sentiment API error: ${errorMsg}`);
-    }
-
+    const response = await callOpenRouterCompletion([{ role: "user", content: prompt }]);
     const data = await response.json();
     if (data.choices && data.choices[0]) {
       const content = data.choices[0].message.content;
@@ -367,30 +375,7 @@ Kembalikan respon Anda dalam format JSON array berisi 3 string poin:
 ]
     `;
 
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${openrouterKey}`,
-        "HTTP-Referer": "http://localhost:3000",
-        "X-Title": "SynapseCS",
-      },
-      body: JSON.stringify({
-        model: "google/gemma-4-31b-it:free",
-        messages: [{ role: "user", content: prompt }],
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      let errorMsg = `HTTP Error ${response.status}`;
-      try {
-        const errorJSON = JSON.parse(errorText);
-        errorMsg = errorJSON.error?.message || errorMsg;
-      } catch {}
-      throw new Error(`OpenRouter Summary API error: ${errorMsg}`);
-    }
-
+    const response = await callOpenRouterCompletion([{ role: "user", content: prompt }]);
     const data = await response.json();
     if (data.choices && data.choices[0]) {
       const content = data.choices[0].message.content;
