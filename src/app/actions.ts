@@ -15,6 +15,12 @@ import {
   updateConversationStatusSchema,
   addSOPSchema,
 } from "@/lib/validation";
+import {
+  getConversations,
+  getConversationById,
+  getMessages,
+  getCachedStats,
+} from "@/lib/queries";
 
 /**
  * Server Action: Mencatat log aktivitas audit ke database (Standar Industri).
@@ -430,8 +436,8 @@ export async function getDashboardStatsAction() {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
-    // Tarik data mentah dari database
-    const { data: convos } = await supabase.from("conversations").select("id, status, sentiment");
+    // Tarik data mentah dari database (Cached)
+    const convos = await getCachedStats();
     const { count: totalCustomers } = await supabase.from("customers").select("*", { count: "exact", head: true });
     
     const conversationsList = convos || [];
@@ -462,5 +468,44 @@ export async function getDashboardStatsAction() {
   } catch (error) {
     console.error("Action error fetching dashboard stats:", error);
     return null;
+  }
+}
+
+/**
+ * Server Action: Mengambil daftar percakapan (Cached).
+ */
+export async function getConversationsAction() {
+  try {
+    const cookieStore = await cookies();
+    return await getConversations(cookieStore);
+  } catch (error) {
+    console.error("Action error fetching conversations:", error);
+    return [];
+  }
+}
+
+/**
+ * Server Action: Mengambil detail percakapan berdasarkan ID (Cached).
+ */
+export async function getConversationByIdAction(id: string) {
+  try {
+    const cookieStore = await cookies();
+    return await getConversationById(cookieStore, id);
+  } catch (error) {
+    console.error("Action error fetching conversation by ID:", error);
+    return null;
+  }
+}
+
+/**
+ * Server Action: Mengambil pesan percakapan (Cached).
+ */
+export async function getMessagesAction(conversationId: string) {
+  try {
+    const cookieStore = await cookies();
+    return await getMessages(cookieStore, conversationId);
+  } catch (error) {
+    console.error("Action error fetching messages:", error);
+    return [];
   }
 }

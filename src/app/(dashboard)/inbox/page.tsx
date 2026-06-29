@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/lib/supabase";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getConversationsAction } from "@/app/actions";
 import {
   Search,
   Flame,
@@ -102,23 +103,9 @@ export default function InboxPage() {
 
   // Fetch conversations function
   const fetchConversations = async () => {
+    setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("conversations")
-        .select(`
-          id,
-          status,
-          sentiment,
-          ai_summary,
-          created_at,
-          updated_at,
-          customers (id, name, email, phone),
-          profiles (id, name, role),
-          messages (id, sender_type, content, created_at)
-        `)
-        .order("updated_at", { ascending: false });
-
-      if (error) throw error;
+      const data = await getConversationsAction();
       setConversationsList(data || []);
     } catch (err: any) {
       console.error("Failed to load conversations from Supabase:", err?.message || err?.details || err);

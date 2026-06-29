@@ -14,6 +14,8 @@ import {
   sendMessageAction,
   claimConversationAction,
   updateConversationStatusAction,
+  getConversationByIdAction,
+  getMessagesAction,
 } from "@/app/actions";
 import {
   Tooltip,
@@ -216,45 +218,19 @@ export default function ConversationDetailPage({ params }: { params: Promise<{ i
       setLoading(true);
       if (isUsingSupabase) {
         try {
-          // Fetch conversation
-          const { data: convo } = await supabase
-            .from("conversations")
-            .select("*")
-            .eq("id", id)
-            .single();
+          // Fetch conversation details (includes customer and profiles in single cached query)
+          const convo: any = await getConversationByIdAction(id);
 
           if (!convo) {
             setLoading(false);
             return;
           }
           setConversation(convo);
+          setCustomer(convo.customers);
+          setAgent(convo.profiles || null);
 
-          // Fetch customer
-          const { data: cust } = await supabase
-            .from("customers")
-            .select("*")
-            .eq("id", convo.customer_id)
-            .single();
-          setCustomer(cust);
-
-          // Fetch agent
-          if (convo.agent_id) {
-            const { data: agt } = await supabase
-              .from("profiles")
-              .select("*")
-              .eq("id", convo.agent_id)
-              .single();
-            setAgent(agt);
-          } else {
-            setAgent(null);
-          }
-
-          // Fetch messages
-          const { data: msgs } = await supabase
-            .from("messages")
-            .select("id, sender_type, content, attachment_url, created_at")
-            .eq("conversation_id", id)
-            .order("created_at", { ascending: true });
+          // Fetch messages (Cached)
+          const msgs = await getMessagesAction(id);
           setMessages(msgs || []);
         } catch (error: any) {
           console.error("Error loading chat details from Supabase:", error?.message || error);
