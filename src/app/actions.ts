@@ -468,7 +468,7 @@ export async function getDashboardStatsAction() {
 
     // Tarik data mentah dari database dan jumlah pelanggan secara paralel
     const [convos, { count: totalCustomers }] = await Promise.all([
-      getCachedStats(),
+      getCachedStats(cookieStore.getAll()),
       supabase.from("customers").select("*", { count: "exact", head: true }),
     ]);
     

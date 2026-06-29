@@ -58,11 +58,17 @@ export const getMessages = cache(async (cookieStore: CookieStore, conversationId
 
 /**
  * Persistent cross-request cache for dashboard stats revalidated every 30 seconds.
+ * Cookies list is passed as an argument to avoid using dynamic cookies() directly inside the cache scope.
  */
 export const getCachedStats = unstable_cache(
-  async () => {
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
+  async (cookiesList: any[]) => {
+    const mockCookieStore = {
+      getAll() {
+        return cookiesList;
+      },
+      set() {}
+    } as any;
+    const supabase = createClient(mockCookieStore);
     const { data } = await supabase
       .from("conversations")
       .select("id, status, sentiment");
