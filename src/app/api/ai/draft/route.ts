@@ -8,8 +8,8 @@ export async function POST(req: Request) {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
 
-  const { data: { session } } = await supabase.auth.getSession();
-  const userId = session?.user?.id || "anonymous";
+  const { data: { user } } = await supabase.auth.getUser();
+  const userId = user?.id || "anonymous";
   const { success } = await rateLimit.limit(userId);
   if (!success) {
     return new Response(JSON.stringify({ error: "Too many requests. Try again later." }), {

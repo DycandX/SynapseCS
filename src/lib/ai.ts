@@ -54,7 +54,7 @@ async function getGeminiEmbedding(text: string): Promise<number[]> {
       "X-Title": "SynapseCS",
     },
     body: JSON.stringify({
-      model: "google/gemini-embedding-exp-03-04",
+      model: "google/gemini-embedding-001",
       input: text,
     }),
   });

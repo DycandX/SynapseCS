@@ -38,8 +38,8 @@ export async function logActivityAction(
     const supabase = createClient(cookieStore);
 
     // Ambil user ID dari sesi yang sedang aktif
-    const { data: { session } } = await supabase.auth.getSession();
-    const userId = session?.user?.id || null;
+    const { data: { user } } = await supabase.auth.getUser();
+    const userId = user?.id || null;
 
     const { error } = await supabase.from("activity_logs").insert({
       user_id: userId,
@@ -194,8 +194,8 @@ export async function updateConversationStatusAction(
     if (error) throw error;
 
     // 3. Ambil nama agen aktif yang mengubah status
-    const { data: { session } } = await supabase.auth.getSession();
-    const agentId = session?.user?.id;
+    const { data: { user } } = await supabase.auth.getUser();
+    const agentId = user?.id;
     let agentName = "Sistem";
 
     if (agentId) {
@@ -246,8 +246,8 @@ export async function getAISummaryAction(
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
-    const { data: { session } } = await supabase.auth.getSession();
-    const userId = session?.user?.id || "anonymous";
+    const { data: { user } } = await supabase.auth.getUser();
+    const userId = user?.id || "anonymous";
     const { success } = await rateLimit.limit(userId);
     if (!success) {
       return ["Too many requests. Try again later."];
@@ -292,8 +292,8 @@ export async function sendMessageAction(
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
-    const { data: { session } } = await supabase.auth.getSession();
-    const userId = session?.user?.id || "anonymous";
+    const { data: { user } } = await supabase.auth.getUser();
+    const userId = user?.id || "anonymous";
     const { success } = await rateLimit.limit(userId);
     if (!success) {
       return { success: false, error: "Too many requests. Try again later." };
@@ -414,8 +414,8 @@ export async function addSOPAction(
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
-    const { data: { session } } = await supabase.auth.getSession();
-    const userId = session?.user?.id || "anonymous";
+    const { data: { user } } = await supabase.auth.getUser();
+    const userId = user?.id || "anonymous";
     const { success } = await rateLimit.limit(userId);
     if (!success) {
       return { success: false, error: "Too many requests. Try again later." };
