@@ -84,7 +84,7 @@ Tulis draf balasan Anda sekarang:
             "X-Title": "SynapseCS",
           },
           body: JSON.stringify({
-            model: "google/gemma-2-9b-it:free",
+            model: "google/gemma-4-31b-it:free",
             messages: [{ role: "user", content: prompt }],
             stream: true,
           }),
