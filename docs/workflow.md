@@ -310,6 +310,6 @@ Kalo lupa, branch numpuk — lama2 pusing bedain mana yg masih aktif.
 **Root:** `E:\_PROJECT\AI Customer Support (synapse-ai)`
 **Base branch:** `develop`
 **Dependency install:** `npm install`
-**Dev server:** `npm run dev` (di `http://localhost:3000/synapse-cs`)
+**Dev server:** `npm run dev` (di `http://localhost:3000`)
 
 Semua perubahan SQL (Supabase) harus lewat migration file, bukan edit langsung di dashboard.

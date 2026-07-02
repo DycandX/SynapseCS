@@ -24,7 +24,6 @@
     *   **3-Point AI Summary**: Summarize long conversation histories instantly into brief key points.
 4.  **Emergency Escalation (Resend Alerts)**: Automated detection of "Angry" sentiment triggers email alerts to the admin mailbox via Resend Email Service.
 5.  **Audit Logs & Activity Feed**: Structured tracking of operational actions, logging when agents claim tickets, send replies, update SOPs, or when AI escalations occur.
-6.  **Micro-Frontend Ready (Reverse Proxy)**: Pre-configured to run as a sub-project under a subpath of a main domain (e.g., `https://main-domain.com/synapse-cs`) using Next.js `basePath`.
 
 ---
 
@@ -115,19 +114,7 @@ Open `.env.local` and fill in your Supabase credentials, OpenRouter API Key, Res
 ```bash
 npm run dev
 ```
-The application will be accessible at `http://localhost:3000/synapse-cs` (if using the configured `basePath`).
-
----
-
-## ⚙️ Reverse Proxy Configuration (Micro-Frontend)
-
-To host this application under a subpath of your main domain (e.g., `https://zulvikar.is-a.dev/synapse-cs`):
-
-1.  **Next.js Config**: `basePath` is defined as `"/synapse-cs"` inside `next.config.ts`.
-2.  **Supabase Redirect URLs**: Add the wildcard redirect URL in your **Supabase Authentication -> URL Configuration -> Redirect URLs**:
-    *   `https://zulvikar.is-a.dev/synapse-cs/**`
-3.  **Supabase Site URL**: Set the main Site URL to `https://zulvikar.is-a.dev/synapse-cs`.
-4.  **NEXT_PUBLIC_APP_URL**: Set this environment variable in your Vercel project configuration to `https://zulvikar.is-a.dev/synapse-cs`.
+The application will be accessible at `http://localhost:3000`.
 
 ---
 
