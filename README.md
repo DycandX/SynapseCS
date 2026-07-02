@@ -73,7 +73,7 @@
 
 ### 2. Security & Hardening
 *   **JWT Claims Validation**: Converted Supabase Row-Level Security (RLS) policies to validate `app_metadata` claims directly from authenticated session JWTs, securing access scopes for admins and agents.
-*   **Security Headers**: Configured robust HTTP response security headers in [next.config.ts](file:///E:/_PROJECT/AI%20Customer%20Support%20(synapse-ai)/next.config.ts) including Content-Security-Policy (CSP), Strict-Transport-Security (HSTS), X-Frame-Options, X-Content-Type-Options, Referrer-Policy, and X-DNS-Prefetch-Control.
+*   **Security Headers**: Configured robust HTTP response security headers in [next.config.ts](./next.config.ts) including Content-Security-Policy (CSP), Strict-Transport-Security (HSTS), X-Frame-Options, X-Content-Type-Options, Referrer-Policy, and X-DNS-Prefetch-Control.
 
 ### 3. Observability & Error Recovery
 *   **Error Boundaries**: Implemented granular React Class-based `ErrorBoundary` wrapper around all dashboard route pages to prevent component-level crashes from taking down the app shell.
@@ -108,8 +108,8 @@ Open `.env.local` and fill in your Supabase credentials, OpenRouter API Key, Res
 ### 4. Setup Supabase Database Schema
 1.  Go to your **Supabase Dashboard**.
 2.  Navigate to **SQL Editor** -> **New Query**.
-3.  Copy and run the contents of [supabase/setup.sql](file:///E:/_PROJECT/AI%20Customer%20Support%20(synapse-ai)/supabase/setup.sql). This will create all required tables (`profiles`, `customers`, `conversations`, `messages`, `activity_logs`, `knowledge_embeddings`), enable the `vector` extension, configure Row-Level Security (RLS), and set up profile creation triggers.
-4.  (*Optional*) Copy and run the contents of [supabase/seed.sql](file:///E:/_PROJECT/AI%20Customer%20Support%20(synapse-ai)/supabase/seed.sql) to populate initial mock conversations.
+3.  Copy and run the contents of [supabase/setup.sql](./supabase/setup.sql). This will create all required tables (`profiles`, `customers`, `conversations`, `messages`, `activity_logs`, `knowledge_embeddings`), enable the `vector` extension, configure Row-Level Security (RLS), and set up profile creation triggers.
+4.  (*Optional*) Copy and run the contents of [supabase/seed.sql](./supabase/seed.sql) to populate initial mock conversations.
 
 ### 5. Run the Local Development Server
 ```bash
