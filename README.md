@@ -33,9 +33,11 @@
 *   **Frontend / Core**: Next.js 16 (App Router, React Server Actions), TypeScript.
 *   **Styling**: Vanilla Tailwind CSS, Lucide Icons, Glassmorphism, Radix/Base UI Dialog Primitives.
 *   **Database & Auth**: Supabase (PostgreSQL, Row Level Security, pgvector, Realtime Channels).
-*   **Third-Party APIs**:
+*   **Third-Party APIs & Services**:
     *   **OpenRouter API** (Model: `google/gemini-2.0-flash-exp:free` & Gemini Embeddings).
     *   **Resend API** (For email notification routing).
+    *   **Upstash Redis** (For API rate-limiting middleware).
+    *   **Sentry** (For error monitoring & performance tracking).
 
 ---
 
@@ -58,6 +60,25 @@
 │   └── seed.sql                  # Initial mock conversations and messages
 └── next.config.ts                # Next.js configuration (basePath & subpath routing)
 ```
+
+---
+
+## ⚡ Performance & Security Optimizations (Sprint 1 & 2)
+
+### 1. Performance & Scalability
+*   **Data Caching**: Enhanced API fetch performance using Next.js `unstable_cache` with React `cache()` for request-scoped database queries, minimizing duplicate DB hits.
+*   **Parallelized Queries**: Parallelized independent queries using `Promise.all` inside Next.js Server Actions, reducing overall page load latency.
+*   **Pagination & Virtual Scrolling**: Replaced large list rendering with reverse infinite scrolling using `react-virtuoso` in the chat history, and Intersection Observer on the inbox ticket list.
+*   **API Rate Limiting**: Secured backend endpoints and RAG APIs with an Upstash Redis rate-limiting middleware, falling back to a local token-bucket limit in local dev environments.
+
+### 2. Security & Hardening
+*   **JWT Claims Validation**: Converted Supabase Row-Level Security (RLS) policies to validate `app_metadata` claims directly from authenticated session JWTs, securing access scopes for admins and agents.
+*   **Security Headers**: Configured robust HTTP response security headers in [next.config.ts](file:///E:/_PROJECT/AI%20Customer%20Support%20(synapse-ai)/next.config.ts) including Content-Security-Policy (CSP), Strict-Transport-Security (HSTS), X-Frame-Options, X-Content-Type-Options, Referrer-Policy, and X-DNS-Prefetch-Control.
+
+### 3. Observability & Error Recovery
+*   **Error Boundaries**: Implemented granular React Class-based `ErrorBoundary` wrapper around all dashboard route pages to prevent component-level crashes from taking down the app shell.
+*   **Global Error Handling**: Integrated `global-error.tsx` at the root layout to catch fatal server/client errors and automatically report them to Sentry.
+*   **Sentry Monitoring**: Integrated Sentry NextJS SDK for real-time error logging, transaction tracing, and production issue tracking.
 
 ---
 
