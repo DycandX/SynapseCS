@@ -310,6 +310,6 @@ Stale branches pile up and make it hard to tell what's still active.
 **Root:** `E:\_PROJECT\AI Customer Support (synapse-ai)`
 **Base branch:** `develop`
 **Dependency install:** `npm install`
-**Dev server:** `npm run dev` (at `http://localhost:3000/synapse-cs`)
+**Dev server:** `npm run dev` (at `http://localhost:3000`)
 
 All Supabase SQL changes must go through migration files — no direct edits in the Supabase dashboard.

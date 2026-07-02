@@ -134,10 +134,6 @@ Here is how each feature operates and the engineering reasons behind its design:
 *   **What it does:** Tracks operational events, such as status transitions, ticket claims, knowledge base updates, and escalations.
 *   **Why it matters:** Administrative monitoring prevents account sharing, audits agent workloads, and provides a clear history for compliance.
 
-### 6. Subpath Routing & Micro-Frontend Integration
-*   **What it does:** Configures the Next.js `basePath` option to run the entire application under `/synapse-cs`.
-*   **Why it matters:** Large organizations host tools under a unified domain. Subpath routing allows deployment behind a reverse proxy (e.g., Nginx, Cloudflare) without path routing conflicts.
-
 ### 7. Component-Level Error Recovery (Error Boundaries)
 *   **What it does:** Wraps all dashboard pages with granular React `ErrorBoundary` wrappers.
 *   **Why it matters:** If one part of the UI (e.g., the AI draft panel or stats widget) crashes due to unexpected data format, the rest of the application (like the active chat and sidebar navigation) remains interactive, allowing the agent to continue working.
@@ -437,4 +433,4 @@ cp .env.example .env.local
 ```bash
 npm run dev
 ```
-The interface is accessible at `http://localhost:3000/synapse-cs`.
+The interface is accessible at `http://localhost:3000`.
