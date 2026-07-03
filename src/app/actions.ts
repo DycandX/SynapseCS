@@ -328,45 +328,49 @@ export async function sendMessageAction(
       );
     }
 
-    // 4. Jika pesan dikirim oleh pelanggan, jalankan analisis sentimen AI
+    // 4. Jika pesan dikirim oleh pelanggan, jalankan analisis sentimen AI secara asinkron (fire-and-forget)
     if (senderType === "customer") {
-      const sentiment = await analyzeSentiment(content);
+      analyzeSentiment(content)
+        .then(async (sentiment) => {
+          if (!sentiment) return;
 
-      // Perbarui kolom sentimen di tabel conversations
-      await supabase
-        .from("conversations")
-        .update({ sentiment })
-        .eq("id", conversationId);
+          // Perbarui kolom sentimen di tabel conversations
+          await supabase
+            .from("conversations")
+            .update({ sentiment })
+            .eq("id", conversationId);
 
-      // Jika terdeteksi sentimen MARAH, picu notifikasi email dan log sistem
-      if (sentiment === "marah") {
-        // Ambil nama pelanggan
-        const { data: convo } = await supabase
-          .from("conversations")
-          .select("customer_id, customers(name)")
-          .eq("id", conversationId)
-          .single();
+          // Jika terdeteksi sentimen MARAH, picu notifikasi email, pesan sistem, dan log audit secara paralel
+          if (sentiment === "marah") {
+            // Ambil nama pelanggan
+            const { data: convo } = await supabase
+              .from("conversations")
+              .select("customer_id, customers(name)")
+              .eq("id", conversationId)
+              .single();
 
-        const customerName = (convo as any)?.customers?.name || "Pelanggan";
+            const customerName = (convo as any)?.customers?.name || "Pelanggan";
+            const systemLogContent = `📊 Analisis Sentimen: MARAH — Pelanggan mengekspresikan kekecewaan tinggi terkait keluhannya. Notifikasi eskalasi darurat telah dikirim ke administrator.`;
 
-        // Kirim email darurat via Resend dan sisipkan pesan log sistem AI secara paralel
-        const systemLogContent = `📊 Analisis Sentimen: MARAH — Pelanggan mengekspresikan kekecewaan tinggi terkait keluhannya. Notifikasi eskalasi darurat telah dikirim ke administrator.`;
-        await Promise.all([
-          sendUrgentAlertEmail(customerName, content, conversationId),
-          supabase.from("messages").insert({
-            conversation_id: conversationId,
-            sender_type: "ai_system",
-            content: systemLogContent,
-          }),
-        ]);
-
-        // Catat di log audit aktivitas sistem
-        await logActivityAction(
-          "SYSTEM_ESCALATION",
-          `Eskalasi darurat otomatis dipicu untuk tiket #${conversationId} (Sentimen: MARAH)`,
-          { conversationId, customerName }
-        );
-      }
+            await Promise.all([
+              sendUrgentAlertEmail(customerName, content, conversationId),
+              supabase.from("messages").insert({
+                conversation_id: conversationId,
+                sender_type: "ai_system",
+                content: systemLogContent,
+              }),
+              supabase.from("activity_logs").insert({
+                user_id: null,
+                action: "SYSTEM_ESCALATION",
+                description: `Eskalasi darurat otomatis dipicu untuk tiket #${conversationId} (Sentimen: MARAH)`,
+                metadata: { conversationId, customerName },
+              }),
+            ]);
+          }
+        })
+        .catch((err) => {
+          console.error("Async sentiment analysis failed:", err);
+        });
     }
 
     return { success: true, message };
