@@ -349,7 +349,14 @@ export async function sendMessageAction(
               .eq("id", conversationId)
               .single();
 
-            const customerName = (convo as any)?.customers?.name || "Pelanggan";
+            interface ConversationWithCustomer {
+              customer_id: string;
+              customers: {
+                name: string;
+              } | null;
+            }
+            const typedConvo = convo as unknown as ConversationWithCustomer | null;
+            const customerName = typedConvo?.customers?.name || "Pelanggan";
             const systemLogContent = `📊 Analisis Sentimen: MARAH — Pelanggan mengekspresikan kekecewaan tinggi terkait keluhannya. Notifikasi eskalasi darurat telah dikirim ke administrator.`;
 
             await Promise.all([
@@ -374,12 +381,13 @@ export async function sendMessageAction(
     }
 
     return { success: true, message };
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error instanceof ZodError) {
       return { success: false, error: "Validation failed", details: error.issues };
     }
     console.error("Action error sending message:", error);
-    return { success: false, error: error.message || String(error) };
+    const errMsg = error instanceof Error ? error.message : String(error);
+    return { success: false, error: errMsg };
   }
 }
 

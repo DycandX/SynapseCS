@@ -22,7 +22,6 @@ import {
   UserPlus,
   Clock,
   Activity,
-  AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { users as dummyUsers } from "@/lib/dummy-data";

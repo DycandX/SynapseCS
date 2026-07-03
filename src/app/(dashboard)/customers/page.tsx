@@ -17,7 +17,6 @@ import {
   Users,
   ArrowRight,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
 import {
   customers as dummyCustomers,
   getConversationsByCustomerId,

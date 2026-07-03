@@ -6,7 +6,6 @@ import { useAuth } from "@/components/auth-provider";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { supabase } from "@/lib/supabase";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { buttonVariants } from "@/components/ui/button";
 import {

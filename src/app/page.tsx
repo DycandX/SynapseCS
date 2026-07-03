@@ -103,7 +103,7 @@ export default function LoginPage() {
               { icon: Sparkles, title: "AI Draft Balasan", desc: "Buat balasan otomatis berdasarkan SOP" },
               { icon: Zap, title: "Ringkas Obrolan", desc: "Rangkum percakapan panjang dalam 3 poin" },
               { icon: Shield, title: "Analisis Sentimen", desc: "Deteksi otomatis emosi pelanggan" },
-            ].map((feature, i) => (
+            ].map((feature) => (
               <div
                 key={feature.title}
                 className="flex items-start gap-4 p-4 rounded-xl bg-white/[0.04] backdrop-blur-sm border border-white/[0.06] hover:bg-white/[0.08] transition-all duration-300 group cursor-default"
