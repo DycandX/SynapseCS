@@ -1,9 +1,28 @@
 -- ─────────────────────────────────────────────────────────────
--- SynapseCS — Data Seed Script (Conversations & Messages)
--- Run this in the Supabase SQL Editor
+-- SynapseCS — Data Seed Script (Complete Sandbox Seeding)
 -- ─────────────────────────────────────────────────────────────
 
--- 1. Seed Conversations (assigned as unassigned/null agent so the logged-in agent can claim them)
+-- 1. Seed Customers
+insert into public.customers (id, name, email, phone, created_at) values
+  ('c1000000-0000-0000-0000-000000000001', 'Ahmad Fauzi', 'ahmad.fauzi@gmail.com', '+6281234567890', now() - interval '30 days'),
+  ('c1000000-0000-0000-0000-000000000002', 'Siti Nurhaliza', 'siti.nurhaliza@yahoo.com', '+6281345678901', now() - interval '28 days'),
+  ('c1000000-0000-0000-0000-000000000003', 'Rudi Hermawan', 'rudi.h@outlook.com', '+6281456789012', now() - interval '25 days'),
+  ('c1000000-0000-0000-0000-000000000004', 'Maya Sari', 'maya.sari@gmail.com', '+6281567890123', now() - interval '20 days'),
+  ('c1000000-0000-0000-0000-000000000005', 'Teguh Prasetyo', 'teguh.p@proton.me', '+6281678901234', now() - interval '15 days'),
+  ('c1000000-0000-0000-0000-000000000006', 'Lina Marlina', 'lina.m@gmail.com', '+6281789012345', now() - interval '10 days')
+on conflict (email) do nothing;
+
+-- 2. Seed Standard SOPs with 768-dim zero-vector placeholders
+-- Embeddings will be updated when managed through admin or AI pipeline
+insert into public.knowledge_embeddings (id, title, content, embedding) values
+  ('b0000000-0000-0000-0000-000000000001', 'SOP Penanganan Keluhan Pelanggan', 'Langkah 1: Sapa pelanggan dengan ramah dan empati. Langkah 2: Identifikasi masalah utama. Langkah 3: Berikan solusi sesuai kebijakan. Langkah 4: Follow-up dalam 24 jam. Langkah 5: Pastikan pelanggan puas sebelum menutup tiket.', array_fill(0, ARRAY[768])::vector),
+  ('b0000000-0000-0000-0000-000000000002', 'SOP Pengembalian Dana (Refund)', 'Refund dapat diproses jika: 1) Pesanan dibatalkan sebelum dikirim. 2) Barang cacat/rusak saat diterima (sertakan foto). 3) Barang tidak sesuai deskripsi. Proses refund: 3-5 hari kerja ke rekening asal. Batas waktu klaim: 7 hari setelah penerimaan.', array_fill(0, ARRAY[768])::vector),
+  ('b0000000-0000-0000-0000-000000000003', 'SOP Perubahan Alamat Pengiriman', 'Perubahan alamat hanya bisa dilakukan jika pesanan belum masuk proses pengiriman (status: Diproses). Hubungi tim logistik melalui channel internal untuk update. Konfirmasi perubahan via chat.', array_fill(0, ARRAY[768])::vector),
+  ('b0000000-0000-0000-0000-000000000004', 'SOP Eskalasi Masalah ke Supervisor', 'Eskalasi diperlukan jika: 1) Pelanggan mengancam tindakan hukum. 2) Nilai transaksi di atas Rp 5.000.000. 3) Masalah teknis yang tidak bisa diselesaikan agen. 4) Pelanggan meminta bicara dengan atasan. Catat semua detail sebelum eskalasi.', array_fill(0, ARRAY[768])::vector),
+  ('b0000000-0000-0000-0000-000000000005', 'SOP Reset Password Pelanggan', 'Langkah 1: Verifikasi identitas pelanggan (email + nomor telepon terdaftar). Langkah 2: Kirim link reset password via email terdaftar. Langkah 3: Jika email tidak bisa diakses, lakukan verifikasi KTP. Langkah 4: Reset manual oleh admin teknis.', array_fill(0, ARRAY[768])::vector)
+on conflict do nothing;
+
+-- 3. Seed Conversations (assigned as unassigned/null agent so the logged-in agent can claim them)
 insert into public.conversations (id, customer_id, agent_id, status, sentiment, ai_summary, created_at, updated_at) values
   ('e1000000-0000-0000-0000-000000000001', 'c1000000-0000-0000-0000-000000000001', null, 'open', 'marah', null, now() - interval '2 days', now() - interval '1 day'),
   ('e1000000-0000-0000-0000-000000000002', 'c1000000-0000-0000-0000-000000000002', null, 'open', 'netral', null, now() - interval '1 day', now() - interval '18 hours'),
@@ -13,7 +32,7 @@ insert into public.conversations (id, customer_id, agent_id, status, sentiment, 
   ('e1000000-0000-0000-0000-000000000006', 'c1000000-0000-0000-0000-000000000006', null, 'open', 'netral', null, now() - interval '6 hours', now() - interval '5 hours')
 on conflict (id) do nothing;
 
--- 2. Seed Messages
+-- 4. Seed Messages
 insert into public.messages (id, conversation_id, sender_type, content, created_at) values
   -- conv1: Ahmad Fauzi (marah)
   ('f1000000-0000-0000-0000-000000000001', 'e1000000-0000-0000-0000-000000000001', 'customer', 'Halo, saya sangat kecewa! Barang yang saya pesan sudah 2 minggu belum sampai. Ini tidak bisa diterima!', now() - interval '2 days'),
