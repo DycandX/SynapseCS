@@ -16,7 +16,6 @@ import {
   claimConversationAction,
   updateConversationStatusAction,
   getConversationByIdAction,
-  getMessagesAction,
   getMessagesPaginatedAction,
 } from "@/app/actions";
 import { Virtuoso } from "react-virtuoso";
@@ -68,7 +67,6 @@ import {
   type Sentiment,
   type ConversationStatus,
   type SenderType,
-  type Message as DummyMessage,
 } from "@/lib/dummy-data";
 
 // Unified message type supporting both dummy and Supabase structure
@@ -915,7 +913,7 @@ function ConversationDetailPage({ params }: { params: Promise<{ id: string }> })
               followOutput="smooth"
               firstItemIndex={firstItemIndex}
               startReached={loadOlderMessages}
-              itemContent={(index, msg) => (
+              itemContent={(_index, msg) => (
                 <div className="px-4 py-2">
                   <div className="max-w-2xl mx-auto">
                     <MessageBubble msg={msg} />

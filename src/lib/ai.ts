@@ -2,6 +2,13 @@ import { createClient as createServerClient } from "@/utils/supabase/server";
 import { cookies } from "next/headers";
 import { supabase as clientSupabase } from "./supabase";
 
+export interface KnowledgeDoc {
+  id: string;
+  title: string;
+  content: string;
+  similarity?: number;
+}
+
 const openrouterKey = process.env.OPENROUTER_API_KEY || "your-openrouter-key-placeholder";
 
 // Helper to obtain the correct Supabase client in the server context
@@ -34,7 +41,7 @@ export async function callOpenRouterCompletion(
     "openrouter/free"
   ];
 
-  let lastError: any = null;
+  let lastError: unknown = null;
   for (const model of models) {
     try {
       const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -67,8 +74,9 @@ export async function callOpenRouterCompletion(
       }
 
       return response;
-    } catch (err: any) {
-      console.warn(`OpenRouter model ${model} failed. Trying next fallback... Error: ${err.message || err}`);
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      console.warn(`OpenRouter model ${model} failed. Trying next fallback... Error: ${errMsg}`);
       lastError = err;
     }
   }
@@ -132,11 +140,12 @@ async function getGeminiEmbedding(text: string, retries = 3, delay = 1000): Prom
         return data.data[0].embedding;
       }
       throw new Error("Invalid response format from OpenRouter Embeddings API");
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (i === retries - 1) {
         throw error;
       }
-      console.warn(`RAG: Embedding fetch error: ${error.message || error}. Retrying in ${delay}ms...`);
+      const errMsg = error instanceof Error ? error.message : String(error);
+      console.warn(`RAG: Embedding fetch error: ${errMsg}. Retrying in ${delay}ms...`);
       await new Promise((resolve) => setTimeout(resolve, delay));
       delay *= 2;
     }
@@ -238,7 +247,7 @@ export async function generateAIDraft(conversationId: string, customerMessage: s
     ]);
 
     const sopContext = sops.length > 0
-      ? sops.map((doc: any) => `SOP: ${doc.title}\nIsi SOP: ${doc.content}`).join("\n\n")
+      ? sops.map((doc: KnowledgeDoc) => `SOP: ${doc.title}\nIsi SOP: ${doc.content}`).join("\n\n")
       : "Tidak ditemukan SOP spesifik yang cocok di basis pengetahuan.";
 
     const chatHistoryContext = messages && messages.length > 0
@@ -278,7 +287,7 @@ Tulis draf balasan Anda sekarang:
     }
     
     throw new Error(data.error?.message || "Gagal mendapatkan draf balasan dari OpenRouter.");
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error generating AI Draft via OpenRouter:", error);
     return "Maaf, sistem gagal menyusun draf balasan otomatis karena kendala teknis API OpenRouter.";
   }

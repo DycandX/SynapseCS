@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useAuth } from "@/components/auth-provider";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { Badge } from "@/components/ui/badge";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -20,7 +20,6 @@ import {
   TrendingUp,
   Smile,
   Flame,
-  Minus,
   ArrowRight,
   BookOpen,
   Settings,
@@ -34,33 +33,7 @@ import {
   users as dummyUsers,
   getCustomerById,
   getMessagesByConversationId,
-  type Sentiment,
-  type ConversationStatus,
 } from "@/lib/dummy-data";
-
-const sentimentConfig: Record<Sentiment, { label: string; icon: typeof Flame; color: string; bg: string; fill: string }> = {
-  marah: {
-    label: "Marah / Kecewa",
-    icon: Flame,
-    color: "text-sentiment-angry",
-    bg: "bg-sentiment-angry/10",
-    fill: "bg-sentiment-angry",
-  },
-  netral: {
-    label: "Netral",
-    icon: Minus,
-    color: "text-sentiment-neutral",
-    bg: "bg-sentiment-neutral/10",
-    fill: "bg-sentiment-neutral",
-  },
-  puas: {
-    label: "Puas / Senang",
-    icon: Smile,
-    color: "text-sentiment-happy",
-    bg: "bg-sentiment-happy/10",
-    fill: "bg-sentiment-happy",
-  },
-};
 
 function DashboardPage() {
   const { user: currentUser, isUsingSupabase } = useAuth();

@@ -31,7 +31,7 @@ export async function sendUrgentAlertEmail(
       process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
     }/inbox/${conversationId}`;
 
-    const { data, error } = await resend.emails.send({
+    const { error } = await resend.emails.send({
       from: "SynapseCS Alerts <onboarding@resend.dev>",
       to: alertEmail,
       subject: `⚠️ ESKALASI DARURAT: Tiket Marah dari ${customerName}`,

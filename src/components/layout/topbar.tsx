@@ -16,7 +16,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Menu, Sun, Moon, Bell, LogOut, User } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
